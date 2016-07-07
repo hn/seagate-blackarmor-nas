@@ -199,7 +199,7 @@ page at http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debi
 
 8. Serial connector
 
-   The following pinout has been published by user Mike (BA440) on
+   The following pinout has been published by user Mike Seeley github.com/mjseeley (BA440) on
    the Seagate Support Forum. It works for the BA220, too.
 
    Please make sure to use a 3.3V cable (search for 'CA-42 USB').
