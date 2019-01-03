@@ -25,7 +25,7 @@
 #
 
 DEBDIST=stretch
-DEBMIRROR=http://deb.debian.org/debian/dists/$DEBDIST/main/installer-armel/current/images/kirkwood
+DEBMIRROR=https://deb.debian.org/debian/dists/$DEBDIST/main/installer-armel/current/images/kirkwood
 PREPDIR=blackarmor-nas220-debian
 
 if [ ! -x /usr/bin/mkimage ]; then
@@ -78,12 +78,12 @@ mkimage -A arm -O linux -T ramdisk -C none \
 
 echo
 
-UBOOTKWBASIZE=0x$(printf "%x" $((512 * $(($(stat -c "%s" u-boot.kwb) / 512)) + 512)))
+UBOOTKWBASIZE=0x$(printf "%x" $((512 * $(($(($(stat -c "%s" u-boot.kwb) + 511)) / 512)))))
 echo "u-boot.kwb file size (512-byte aligned): $UBOOTKWBASIZE"   
-UBOOTENVASIZE=0x$(printf "%x" $((512 * $(($(stat -c "%s" u-boot-env.bin) / 512)) + 512)))
+UBOOTENVASIZE=0x$(printf "%x" $((512 * $(($(($(stat -c "%s" u-boot-env.bin) + 511)) / 512)))))
 echo "u-boot-env.bin file size (512-byte aligned): $UBOOTENVASIZE"   
 echo
-echo "Execute the following commands on the Blackarmore NAS:"
+echo "Execute the following commands on the Blackarmor NAS:"
 echo
 echo "usb start"
 echo "fatload usb 0:1 0x800000 u-boot.kwb"
