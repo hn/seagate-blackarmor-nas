@@ -24,7 +24,7 @@
 # with this program. If not, see <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
 
-MACHINE=$(cat /proc/device-tree/model)
+MACHINE=$(tr -d '\0' </proc/device-tree/model)
 
 if [ "$MACHINE" != "Seagate Blackarmor NAS220" ]; then
 	echo "This script has to be executed on the Seagate Blackarmor NAS 220 only"
@@ -38,6 +38,7 @@ if [ ! -d /usr/share/flash-kernel/db ]; then
 	exit 1
 fi
 
+if ! grep -q "Seagate Blackarmor NAS220" /usr/share/flash-kernel/db/*.db; then
 cat <<EOF >/usr/share/flash-kernel/db/seagate-blackarmor-nas220.db
 Machine: Seagate Blackarmor NAS220
 Kernel-Flavors: kirkwood marvell
@@ -49,6 +50,7 @@ U-Boot-Kernel-Address: 0x00040000
 U-Boot-Initrd-Address: 0x00800000
 Required-Packages: u-boot-tools  
 EOF
+fi
 
 uudecode <<EOF
 begin-base64 644 /etc/fw_env.config
