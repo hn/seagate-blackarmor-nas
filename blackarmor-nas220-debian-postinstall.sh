@@ -70,3 +70,5 @@ EOF
 
 apt-get --yes install linux-image-marvell
 
+grep -q 862013 /etc/fstab || echo -e "# Set /run size, see Debian Bug #862013\ntmpfs\t/run\ttmpfs\tnosuid,noexec,size=20M\t0\t0" >> /etc/fstab
+
