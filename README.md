@@ -272,11 +272,10 @@ Writing data to block 126 at offset 0x1f8000
 done.
 ```
 
-Set ethernet MAC address, boot device (most likely somethine like `/dev/md0` or `/dev/sda1` depending on wether you're using raid or not) and enable autoboot:
+Set ethernet MAC address and enable autoboot:
 
 ```
 # fw_setenv ethaddr 00:10:75:42:42:42
-# fw_setenv bootargs_root /dev/md0
 # fw_setenv bootdelay 3
 # exit
 # exit
