@@ -35,7 +35,7 @@ fi
 
 KERNELVER=$(wget -qO- $DEBMIRROR/netboot/ | sed -n 's/.*vmlinuz-\([^\t ]*\)-marvell.*/\1/p')
 
-echo "Using kernel $KERNELVER for installation."
+echo "Using Debian dist '$DEBDIST' with kernel $KERNELVER for installation."
 
 test -d $PREPDIR || mkdir -v $PREPDIR
 cd $PREPDIR

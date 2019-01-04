@@ -283,3 +283,9 @@ Set ethernet MAC address and enable autoboot:
 
 Exit the shell and reboot the system via the Debian installer main menu.
 
+### Additional tuning
+
+- As Moritz [suggests](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian#tuning) it is advisable to install the `lm-sensors` and `hdparm` packages.
+
+- He also notes that you can adjust the fan speed by echo-ing the desired speed to sysfs: `echo 128 > /sys/class/i2c-dev/i2c-0/device/0-002e/pwm1`.
+
