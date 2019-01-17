@@ -5,7 +5,7 @@ Some years ago [I reverse engineered](seagate-blackarmor-nas.txt) the Seagate Bl
 
 ## Debian 9 Stretch
 
-Evgeni Dobrev created a [kernel patch to include hardware support for the Blackarmor 220 in the mainline linux kernel](http://lkml.iu.edu/hypermail/linux/kernel/1412.3/00410.html) and Moritz Rosenthal has released detailed docs on [how to update the system with an up-to-date linux kernel and Debian distribution](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian). I used their work to create some (hopefully) helpful scripts which streamline the process a little further.
+Evgeni Dobrev created a [kernel patch to include hardware support for the Blackarmor 220 in the mainline linux kernel](https://lore.kernel.org/patchwork/patch/529020/) and Moritz Rosenthal has released detailed docs on [how to update the system with an up-to-date linux kernel and Debian distribution](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian). I used their work to create some (hopefully) helpful scripts which streamline the process a little further.
 
 With the following instructions you'll manage to install a fully updateable Debian 9 Stretch system to the NAS (kernel and initrd stored in NAND flash, updated via [flash-kernel package](https://packages.debian.org/stable/flash-kernel)).
 
