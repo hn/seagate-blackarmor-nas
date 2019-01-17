@@ -57,7 +57,11 @@ else
 	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot.kwb
 fi
 
-wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin
+if [ -f u-boot-env.txt -a -x ./u-boot-2017.11/tools/mkenvimage ]; then
+	./u-boot-2017.11/tools/mkenvimage -p 0 -s 65536 -o u-boot-env.bin u-boot-env.txt
+else
+	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin
+fi
 
 wget -nv -nc $DEBMIRROR/netboot/initrd.gz
 wget -nv -nc $DEBMIRROR/netboot/vmlinuz-$KERNELVER-marvell

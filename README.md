@@ -9,6 +9,12 @@ Evgeni Dobrev created a [kernel patch to include hardware support for the Blacka
 
 With the following instructions you'll manage to install a fully updateable Debian 9 Stretch system to the NAS (kernel and initrd stored in NAND flash, updated via [flash-kernel package](https://packages.debian.org/stable/flash-kernel)).
 
+### Warning
+
+This completely removes the Seagate firmware and bootloader -- and there is no easy way of going back. There is a risk of bricking your device, especially if the u-boot bootloader does not start. You have been warned.
+
+This script has been tested on the Blackarmor NAS 220. [At the time of writing it is unclear if it works for the NAS 110 or NAS 440 as well](https://github.com/hn/seagate-blackarmor-nas/issues/5).
+
 ### Prerequisites
 
 Setup a serial terminal (`115200 baud 8N1`) by connecting a 3.3V serial cable to connector `CN5` pins 1=TX, 4=RX and 6=GND like this:
@@ -25,9 +31,9 @@ Using kernel 4.9.0-8 for installation.
 mkdir: created directory 'blackarmor-nas220-debian'
 URL:https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot.kwb [553356/553356] -> "u-boot.kwb" [1]
 URL:https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin [65536/65536] -> "u-boot-env.bin" [1]
-URL:http://cdn-fastly.deb.debian.org/debian/dists/stretch/main/installer-armel/current/images/kirkwood/netboot/initrd.gz [11703715/11703715] -> "initrd.gz" [1]
-URL:http://cdn-fastly.deb.debian.org/debian/dists/stretch/main/installer-armel/current/images/kirkwood/netboot/vmlinuz-4.9.0-8-marvell [2056160/2056160] -> "vmlinuz-4.9.0-8-marvell" [1]
-URL:http://cdn-fastly.deb.debian.org/debian/dists/stretch/main/installer-armel/current/images/kirkwood/device-tree/kirkwood-blackarmor-nas220.dtb [10756/10756] -> "kirkwood-blackarmor-nas220.dtb" [1]
+URL:https://cdn-fastly.deb.debian.org/debian/dists/stretch/main/installer-armel/current/images/kirkwood/netboot/initrd.gz [11703715/11703715] -> "initrd.gz" [1]
+URL:https://cdn-fastly.deb.debian.org/debian/dists/stretch/main/installer-armel/current/images/kirkwood/netboot/vmlinuz-4.9.0-8-marvell [2056160/2056160] -> "vmlinuz-4.9.0-8-marvell" [1]
+URL:https://cdn-fastly.deb.debian.org/debian/dists/stretch/main/installer-armel/current/images/kirkwood/device-tree/kirkwood-blackarmor-nas220.dtb [10756/10756] -> "kirkwood-blackarmor-nas220.dtb" [1]
 
 Image Name:   Linux-4.9.0-8 + nas220.dtb
 Image Type:   ARM Linux Kernel Image (uncompressed)
@@ -281,7 +287,7 @@ Set ethernet MAC address and enable autoboot:
 # exit
 ```
 
-Exit the shell and reboot the system via the Debian installer main menu.
+Exit the shell, remove USB stick and reboot the system via the Debian installer main menu.
 
 ### Additional tuning
 
