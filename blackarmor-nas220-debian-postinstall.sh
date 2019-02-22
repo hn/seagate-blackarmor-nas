@@ -38,6 +38,7 @@ if [ ! -d /usr/share/flash-kernel/db ]; then
 	exit 1
 fi
 
+# Debian 9 vs 10
 if ! grep -q "Seagate Blackarmor NAS220" /usr/share/flash-kernel/db/*.db; then
 cat <<EOF >/usr/share/flash-kernel/db/seagate-blackarmor-nas220.db
 Machine: Seagate Blackarmor NAS220
@@ -72,5 +73,10 @@ EOF
 
 apt-get --yes install linux-image-marvell
 
-grep -q 862013 /etc/fstab || echo -e "# Set /run size, see Debian Bug #862013\ntmpfs\t/run\ttmpfs\tnosuid,noexec,size=20M\t0\t0" >> /etc/fstab
+# Debian 9 vs 10
+if grep -q ^RUNSIZE /etc/initramfs-tools/initramfs.conf; then
+	perl -i -p -e 's/^(RUNSIZE=).*/${1}20M/' /etc/initramfs-tools/initramfs.conf
+else
+	grep -q 862013 /etc/fstab || echo -e "# Set /run size, see Debian Bug #862013\ntmpfs\t/run\ttmpfs\tnosuid,noexec,size=20M\t0\t0" >> /etc/fstab
+fi
 
