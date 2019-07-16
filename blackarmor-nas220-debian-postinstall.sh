@@ -2,7 +2,7 @@
 #
 # blackarmor-nas220-debian-postinstall.sh V1.00
 #
-# Install Debian GNU/Linux 9 Stretch to a Seagate Blackarmor NAS 220
+# Install Debian GNU/Linux to a Seagate Blackarmor NAS 220
 #
 # (C) 2018-2019 Hajo Noerenberg
 #

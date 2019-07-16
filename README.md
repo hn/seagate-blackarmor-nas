@@ -3,11 +3,13 @@
 ## Preamble
 Some years ago [I reverse engineered](seagate-blackarmor-nas.txt) the Seagate Blackarmor NAS 220 and found a convenient way on [how to enable SSH on the device](sg2000-2000.1337.sp42.img). Later, the same mechanism was used to install an [alternative Linux firmware (Debian 5 Lenny)](custom-sg2000-2000.1337.sp99.img). Obviously, Debian 5 Lenny has reached end of life and should not be used in production anymore. 
 
-## Debian 9 Stretch
+## Debian 10 Buster
 
 Evgeni Dobrev created a [kernel patch to include hardware support for the Blackarmor 220 in the mainline linux kernel](https://lore.kernel.org/patchwork/patch/529020/) and Moritz Rosenthal has released detailed docs on [how to update the system with an up-to-date linux kernel and Debian distribution](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian). I used their work to create some (hopefully) helpful scripts which streamline the process a little further.
 
-With the following instructions you'll manage to install a fully updateable Debian 9 Stretch system to the NAS (kernel and initrd stored in NAND flash, updated via [flash-kernel package](https://packages.debian.org/stable/flash-kernel)).
+With the following instructions you'll manage to install a fully updateable Debian 10 Buster system to the NAS (kernel and initrd stored in NAND flash, updated via [flash-kernel package](https://packages.debian.org/stable/flash-kernel)).
+
+(It's still possible to install Debian 9 Stretch by changing `DEBDIST=buster` to `DEBDIST=stretch` in `blackarmor-nas220-debian-prep.sh`)
 
 ### Warning
 
@@ -64,6 +66,8 @@ nand write 0x800000 0xA0000 0x10000
 Copy the files `u-boot.kwb`, `u-boot-env.bin`, `uImage-dtb` and `uInitrd` from directory `blackarmor-nas220-debian` to a FAT formatted USB stick. Carefully examine the flash commands shown at the end of the script output.
 
 ### Flashing Das U-Boot bootloader
+
+This step is only necessary for the very first installation or if you're upgrading from Debian 9 Stretch to Debian 10 Buster. If you're updating within the same Debian release or re-installing, directly skip to [Starting Debian installation](#Starting-Debian-installation).
 
 Use the serial terminal to stop the Seagate boot process and to show the ethernet MAC address:
 
@@ -278,7 +282,7 @@ Writing data to block 126 at offset 0x1f8000
 done.
 ```
 
-Set ethernet MAC address and enable autoboot:
+Set ethernet MAC address and enable autoboot (only needed after flashing Das U-Boot bootloader):
 
 ```
 # fw_setenv ethaddr 00:10:75:42:42:42
