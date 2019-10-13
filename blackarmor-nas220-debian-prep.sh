@@ -27,11 +27,24 @@
 DEBDIST=buster
 DEBMIRROR=https://deb.debian.org/debian/dists/$DEBDIST/main/installer-armel/current/images/kirkwood
 PREPDIR=blackarmor-nas220-debian
+UBOOT=u-boot-2019.07 # was 2017.11 # only used if you specify --rebuild 
+MEMADDR="0x800000"
+BUILD=false
+
 
 if [ ! -x /usr/bin/mkimage ]; then
 	echo "'mkimage' missing, install 'u-boot-tools' package first"
 	exit 1
 fi
+
+if [[ $1 == *"--rebuild"* ]]; then
+	if [ ! -x /usr/bin/arm-none-eabi-gcc ]; then
+		echo "arm cross compile missing for compile run: "
+		echo " 'apt-get install gcc-arm-none-eabi'"
+		exit 1
+	fi
+	BUILD=true
+fi 
 
 KERNELVER=$(wget -qO- $DEBMIRROR/netboot/ | sed -n 's/.*vmlinuz-\([^\t ]*\)-marvell.*/\1/p')
 
@@ -42,25 +55,27 @@ cd $PREPDIR
 
 rm -vf uImage-dtb uInitrd
 
-if false; then # intentionally disabled
-	test -x /usr/bin/arm-none-eabi-gcc || apt-get install gcc-arm-none-eabi
-	wget -nc ftp://ftp.denx.de/pub/u-boot/u-boot-2017.11.tar.bz2
-	tar xjf u-boot-2017.11.tar.bz2
-	cd u-boot-2017.11
+if $BUILD; then 
+	wget -nc ftp://ftp.denx.de/pub/u-boot/$UBOOT.tar.bz2
+	tar xjf $UBOOT.tar.bz2
+	cd $UBOOT
 	export CROSS_COMPILE=arm-none-eabi-
 	export ARCH=arm
 	make nas220_defconfig
 	make -j2
 	./tools/mkimage -n ./board/Seagate/nas220/kwbimage.cfg -T kwbimage -a 0x00600000 -e 0x00600000 -d u-boot.bin ../u-boot.kwb
 	cd ..
-else
-	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot.kwb
-fi
 
-if [ -f u-boot-env.txt -a -x ./u-boot-2017.11/tools/mkenvimage ]; then
-	./u-boot-2017.11/tools/mkenvimage -p 0 -s 65536 -o u-boot-env.bin u-boot-env.txt
+	if [ -f u-boot-env.txt -a -x ./$UBOOT/tools/mkenvimage ]; then
+		./$UBOOT/tools/mkenvimage -p 0 -s 65536 -o u-boot-env.bin u-boot-env.txt
+		echo
+	else
+		echo "Warning: File u-boot-env.txt was missing!"
+		wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin
+	fi
 else
 	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin
+	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot.kwb
 fi
 
 wget -nv -nc $DEBMIRROR/netboot/initrd.gz
@@ -90,12 +105,12 @@ echo
 echo "Execute the following commands on the Blackarmor NAS:"
 echo
 echo "usb start"
-echo "fatload usb 0:1 0x800000 u-boot.kwb"
+echo "fatload usb 0:1 $MEMADDR u-boot.kwb"
 echo "nand erase 0x0 $UBOOTKWBASIZE"
-echo "nand write 0x800000 0x0 $UBOOTKWBASIZE"
-echo "fatload usb 0:1 0x800000 u-boot-env.bin"
+echo "nand write $MEMADDR 0x0 $UBOOTKWBASIZE"
+echo "fatload usb 0:1 $MEMADDR u-boot-env.bin"
 echo "nand erase 0xA0000 $UBOOTENVASIZE"
-echo "nand write 0x800000 0xA0000 $UBOOTENVASIZE"
+echo "nand write $MEMADDR 0xA0000 $UBOOTENVASIZE"
 
 echo
 
