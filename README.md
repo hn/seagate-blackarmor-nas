@@ -21,7 +21,7 @@ The NAS 440 is [NOT compatible with Evgenis Kernel patch](https://github.com/hn/
 
 ### Prerequisites
 
-Setup a serial terminal (`115200 baud 8N1`) by connecting a 3.3V serial cable to connector `CN5` pins 1=TX, 4=RX and 6=GND like this:
+Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUSB0 115200`) by connecting a 3.3V serial cable to connector `CN5` pins 1=TX, 4=RX and 6=GND like this:
 
 ![Blackarmor NAS220 serial port](https://github.com/hn/seagate-blackarmor-nas/blob/master/blackarmor-nas220-debian-serialport.jpg "serial port")
 
@@ -160,6 +160,8 @@ Marvell>> reset
 
 Make sure to restart the NAS via `reset` command after flashing the bootloader!
 
+If your nas just restarts with the error message `cpu reset` after the `fatload usb 0:1 0x800000 u-boot.kwb` command try to format the usb stick to `ext2` and use `ext2load usb 0:1 ...` instead. 
+
 ### Starting Debian installation
 
 After resetting the NAS, connect a network cable to the NAS and execute `run bootcmd_usb` to start the Debian netboot installation:
@@ -218,7 +220,7 @@ Uncompressing Linux... done, booting the kernel.
 ...
 ```
 
-Proceed with Debian installation as usual (configure RAID, select packages, ...). Ignore the `No installable kernel was found` and `No boot loader installed` warnings (`Continue without installing a kernel?`=`Yes` and `Continue`), but do not reboot yet!
+Proceed with Debian installation as usual (configure RAID, select packages, ...). Ignore the `No installable kernel was found` and `No boot loader installed` warnings (`Continue without installing a kernel?`=`Yes` and `Continue`), but do not reboot yet! Don't forget the `Finish installation` item last or you won't be able to login later.
 
 ### Finishing Debian installation
 
@@ -281,6 +283,8 @@ Erasing 16 Kibl (using 2066980/5242880 bytes)...
 Writing data to block 124 at offset 0x1f0000
 Writing data to block 125 at offset 0x1f4000
 Writing data to block 126 at offset 0x1f8000
+...
+Writing data to block 1004 at offset 0xfb0000
 done.
 ```
 
@@ -288,7 +292,6 @@ Set ethernet MAC address and enable autoboot (only needed after flashing Das U-B
 
 ```
 # fw_setenv ethaddr 00:10:75:42:42:42
-# fw_setenv bootdelay 3
 # exit
 # exit
 ```
@@ -297,7 +300,22 @@ Exit the shell, remove USB stick and reboot the system via the Debian installer 
 
 ### Additional tuning
 
-- As Moritz [suggests](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian#tuning) it is advisable to install the `lm-sensors` and `hdparm` packages.
+- As Moritz [suggests](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian#tuning) it is advisable to install the `lm-sensors` and `hdparm` packages. 
 
 - He also notes that you can adjust the fan speed by echo-ing the desired speed to sysfs: `echo 128 > /sys/class/i2c-dev/i2c-0/device/0-002e/pwm1`.
 
+## Backup 
+
+### Write Flash to files
+
+Boot with different linux
+
+```
+cat /dev/mtd0 > uboot.img
+cat /dev/mtd1 > ubootenv.img
+cat /dev/mtd2 > preroot.img
+cat /dev/mtd3 > uimage.img
+cat /dev/mtd4 > rootfs.img
+cat /proc/cpuinfo > cpuinfo.txt
+fw_printenv > ubootenv.txt
+```
