@@ -19,7 +19,7 @@ This script has been tested on the Blackarmor NAS 220. [At the time of writing i
 
 ### Prerequisites
 
-Setup a serial terminal (`115200 baud 8N1`) by connecting a 3.3V serial cable to connector `CN5` pins 1=TX, 4=RX and 6=GND like this:
+Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUSB0 115200`) by connecting a 3.3V serial cable to connector `CN5` pins 1=TX, 4=RX and 6=GND like this:
 
 ![Blackarmor NAS220 serial port](https://github.com/hn/seagate-blackarmor-nas/blob/master/blackarmor-nas220-debian-serialport.jpg "serial port")
 
@@ -158,6 +158,8 @@ Marvell>> reset
 
 Make sure to restart the NAS via `reset` command after flashing the bootloader!
 
+If your nas just restarts with the error message `cpu reset` after the `fatload usb 0:1 0x800000 u-boot.kwb` command try to format the usb stick to `ext2` and use `ext2load usb 0:1 ...` instead.
+
 ### Starting Debian installation
 
 After resetting the NAS, connect a network cable to the NAS and execute `run bootcmd_usb` to start the Debian netboot installation:
@@ -291,7 +293,7 @@ Set ethernet MAC address and enable autoboot (only needed after flashing Das U-B
 # exit
 ```
 
-Exit the shell, remove USB stick and reboot the system via the Debian installer main menu.
+Exit the shell, remove USB stick and reboot the system via the Debian installer main menu. Don't forget the `Finish installation` item last or you won't be able to login later!
 
 ### Additional tuning
 
