@@ -15,7 +15,9 @@ With the following instructions you'll manage to install a fully updateable Debi
 
 This completely removes the Seagate firmware and bootloader -- and there is no easy way of going back. There is a risk of bricking your device, especially if the u-boot bootloader does not start. You have been warned.
 
-This script has been tested on the Blackarmor NAS 220. [At the time of writing it is unclear if it works for the NAS 110 or NAS 440 as well](https://github.com/hn/seagate-blackarmor-nas/issues/5).
+This script has been developed and tested on the Blackarmor NAS 220. User [luctrev](https://github.com/luctrev) reports [a successful installation on his NAS 110](https://github.com/hn/seagate-blackarmor-nas/issues/6), so the hardware of the NAS 110 and 220 seems to be reasonable compatible.
+
+The NAS 440 is [NOT compatible with Evgenis Kernel patch](https://github.com/hn/seagate-blackarmor-nas/issues/5) and therefore this script does not work, do NOT try to install on a NAS 440, this will brick your device! Thankfully, [Andreas Fischer](https://github.com/bantu) did [very some promising work](https://gist.github.com/bantu/d456865b91be6c99320b) on providing an [U-Boot](https://github.com/bantu/u-boot/compare/master...sg-ba-440) and [kernel patch](https://github.com/bantu/linux/compare/master...kw-ba-400-dts). Make sure to check his pages and help to finalize the patches. As I do not have access to NAS 440 hardware, I can not help and test this device.
 
 ### Prerequisites
 
