@@ -4,7 +4,7 @@
 #
 # Install Debian GNU/Linux to a Seagate Blackarmor NAS 220
 #
-# (C) 2018-2019 Hajo Noerenberg
+# (C) 2018-2020 Hajo Noerenberg
 #
 #
 # http://www.noerenberg.de/
@@ -28,6 +28,20 @@ DEBDIST=buster
 DEBMIRROR=https://deb.debian.org/debian/dists/$DEBDIST/main/installer-armel/current/images/kirkwood
 PREPDIR=blackarmor-nas220-debian
 UBOOT=u-boot-2017.11
+REBUILD=false
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--rebuild)
+		REBUILD=true
+		;;
+	*)
+		echo "$0: unrecognized option: '$1'" >&2
+		exit 1
+		;;
+	esac
+	shift
+done
 
 if [ ! -x /usr/bin/mkimage ]; then
 	echo "'mkimage' missing, install 'u-boot-tools' package first"
@@ -43,7 +57,7 @@ cd $PREPDIR
 
 rm -vf uImage-dtb uInitrd
 
-if false; then # intentionally disabled
+if $REBUILD; then
 	test -x /usr/bin/arm-none-eabi-gcc || apt-get install gcc-arm-none-eabi
 	wget -nc ftp://ftp.denx.de/pub/u-boot/$UBOOT.tar.bz2
 	tar xjf $UBOOT.tar.bz2
