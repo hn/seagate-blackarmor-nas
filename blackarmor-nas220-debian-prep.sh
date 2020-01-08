@@ -27,6 +27,7 @@
 DEBDIST=buster
 DEBMIRROR=https://deb.debian.org/debian/dists/$DEBDIST/main/installer-armel/current/images/kirkwood
 PREPDIR=blackarmor-nas220-debian
+UBOOT=u-boot-2017.11
 
 if [ ! -x /usr/bin/mkimage ]; then
 	echo "'mkimage' missing, install 'u-boot-tools' package first"
@@ -44,9 +45,9 @@ rm -vf uImage-dtb uInitrd
 
 if false; then # intentionally disabled
 	test -x /usr/bin/arm-none-eabi-gcc || apt-get install gcc-arm-none-eabi
-	wget -nc ftp://ftp.denx.de/pub/u-boot/u-boot-2017.11.tar.bz2
-	tar xjf u-boot-2017.11.tar.bz2
-	cd u-boot-2017.11
+	wget -nc ftp://ftp.denx.de/pub/u-boot/$UBOOT.tar.bz2
+	tar xjf $UBOOT.tar.bz2
+	cd $UBOOT
 	export CROSS_COMPILE=arm-none-eabi-
 	export ARCH=arm
 	make nas220_defconfig
@@ -57,8 +58,8 @@ else
 	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot.kwb
 fi
 
-if [ -f u-boot-env.txt -a -x ./u-boot-2017.11/tools/mkenvimage ]; then
-	./u-boot-2017.11/tools/mkenvimage -p 0 -s 65536 -o u-boot-env.bin u-boot-env.txt
+if [ -f u-boot-env.txt -a -x ./$UBOOT/tools/mkenvimage ]; then
+	./$UBOOT/tools/mkenvimage -p 0 -s 65536 -o u-boot-env.bin u-boot-env.txt
 else
 	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin
 fi
