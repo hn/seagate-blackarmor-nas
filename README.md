@@ -15,9 +15,37 @@ With the following instructions you'll manage to install a fully updateable Debi
 
 This completely removes the Seagate firmware and bootloader -- and there is no easy way of going back. There is a risk of bricking your device, especially if the u-boot bootloader does not start. You have been warned.
 
-This script has been developed and tested on the Blackarmor NAS 220. User [luctrev](https://github.com/luctrev) reports [a successful installation on his NAS 110](https://github.com/hn/seagate-blackarmor-nas/issues/6), so the hardware of the NAS 110 and 220 seems to be reasonable compatible.
+### Hardware
 
-The NAS 440 is [NOT compatible with Evgenis Kernel patch](https://github.com/hn/seagate-blackarmor-nas/issues/5) and therefore this script does not work, do NOT try to install on a NAS 440, this will brick your device! Thankfully, [Andreas Fischer](https://github.com/bantu) did [very some promising work](https://gist.github.com/bantu/d456865b91be6c99320b) on providing an [U-Boot](https://github.com/bantu/u-boot/compare/master...sg-ba-440) and [kernel patch](https://github.com/bantu/linux/compare/master...kw-ba-400-dts). Make sure to check his pages and help to finalize the patches. As I do not have access to NAS 440 hardware, I can not help and test this device.
+#### NAS 220
+
+Quick specs: 800 Mhz CPU, 128MB RAM, 2 USB ports, 1 network interface, max 2 drives.
+
+This script has been developed and tested on the Blackarmor NAS 220. There
+haven't been any error reports for a long time, so I consider the system as
+stable.
+
+#### NAS 110
+
+Quick specs: 800 Mhz CPU, 128MB RAM, 1 USB port, 1 network interface, max 1 drive.
+
+User [luctrev](https://github.com/luctrev) reports [a successful installation on his NAS 110](https://github.com/hn/seagate-blackarmor-nas/issues/6), so the hardware of the NAS 110 and 220 seems to be reasonable compatible.
+
+#### NAS 400 / 420 /440
+
+Quick specs: 1.2 Ghz CPU, 256MB RAM, 3 USB ports, 2 network interfaces, max 4 drives.
+
+All the NAS 4XX series products have the same 4-bay enclosure. The second digit in this number scheme refers to the
+number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
+
+Drives 3 and 4 are connected to the 88F6281 SoC, drives 1 and 2 are connected to a 88SE6121, which is connected via PCIe.
+
+The NAS 4XX is [NOT compatible with Evgenis Kernel patch](https://github.com/hn/seagate-blackarmor-nas/issues/5) and therefore
+this script does not work, do NOT try to install on a NAS 440, this will brick your device!
+Thankfully, [Andreas Fischer](https://github.com/bantu) did [very some promising work](https://gist.github.com/bantu/d456865b91be6c99320b)
+on providing an [U-Boot](https://github.com/bantu/u-boot/compare/master...sg-ba-440) and
+[kernel patch](https://github.com/bantu/linux/compare/master...kw-ba-400-dts). Make sure to check his pages and help to finalize
+the patches. As I do not have access to NAS 4XX hardware, I can not help and test this device.
 
 ### Prerequisites
 
