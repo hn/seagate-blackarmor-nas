@@ -66,10 +66,10 @@ if $REBUILD; then
 	export ARCH=arm
 	make nas220_defconfig
 	make -j2
-	./tools/mkimage -n ./board/Seagate/nas220/kwbimage.cfg -T kwbimage -a 0x00600000 -e 0x00600000 -d u-boot.bin ../u-boot.kwb
+	./tools/mkimage -n ./board/Seagate/nas220/kwbimage.cfg -T kwbimage -a 0x00600000 -e 0x00600000 -d u-boot.bin ../u-boot-nas220.kwb
 	cd ..
 else
-	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot.kwb
+	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-nas220.kwb
 fi
 
 if [ -f u-boot-env.txt -a -x ./$UBOOT/tools/mkenvimage ]; then
@@ -97,15 +97,15 @@ mkimage -A arm -O linux -T ramdisk -C none \
 
 echo
 
-UBOOTKWBASIZE=0x$(printf "%x" $((512 * $(($(($(stat -c "%s" u-boot.kwb) + 511)) / 512)))))
-echo "u-boot.kwb file size (512-byte aligned): $UBOOTKWBASIZE"   
+UBOOTKWBASIZE=0x$(printf "%x" $((512 * $(($(($(stat -c "%s" u-boot-nas220.kwb) + 511)) / 512)))))
+echo "u-boot-nas220.kwb file size (512-byte aligned): $UBOOTKWBASIZE"
 UBOOTENVASIZE=0x$(printf "%x" $((512 * $(($(($(stat -c "%s" u-boot-env.bin) + 511)) / 512)))))
-echo "u-boot-env.bin file size (512-byte aligned): $UBOOTENVASIZE"   
+echo "u-boot-env.bin file size (512-byte aligned): $UBOOTENVASIZE"
 echo
 echo "Execute the following commands on the Blackarmor NAS:"
 echo
 echo "usb start"
-echo "fatload usb 0:1 0x800000 u-boot.kwb"
+echo "fatload usb 0:1 0x800000 u-boot-nas220.kwb"
 echo "nand erase 0x0 $UBOOTKWBASIZE"
 echo "nand write 0x800000 0x0 $UBOOTKWBASIZE"
 echo "fatload usb 0:1 0x800000 u-boot-env.bin"

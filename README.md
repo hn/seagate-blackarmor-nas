@@ -17,23 +17,27 @@ This completely removes the Seagate firmware and bootloader -- and there is no e
 
 ### Hardware
 
+#### NAS 110
+
+Quick specs: 800 Mhz CPU (Marvell 88F6192), 128MB RAM, 1 USB port, 1 network interface, max 1 drive. Motherboard
+codename 'Mono'.
+
+User [luctrev](https://github.com/luctrev) reports [a successful installation on his NAS 110](https://github.com/hn/seagate-blackarmor-nas/issues/6), so the hardware of the NAS 110 and 220 seems to be reasonable compatible.
+
 #### NAS 220
 
-Quick specs: 800 Mhz CPU, 128MB RAM, 2 USB ports, 1 network interface, max 2 drives.
+Quick specs: 800 Mhz CPU (Marvell 88F6192), 128MB RAM, 2 USB ports, 1 network interface, max 2 drives. Motherboard
+codename '[Lassen](https://en.wikipedia.org/wiki/Lassen_Peak)'.
 
 This script has been developed and tested on the Blackarmor NAS 220. There
 haven't been any error reports for a long time, so I consider the system as
 stable.
 
-#### NAS 110
+#### NAS 400 / 420 / 440
 
-Quick specs: 800 Mhz CPU, 128MB RAM, 1 USB port, 1 network interface, max 1 drive.
+Quick specs: 1.2 Ghz CPU (Marvell 88F6281), 256MB RAM, 3 USB ports, 2 network interfaces, max 4 drives. Motherboard
+codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)'.
 
-User [luctrev](https://github.com/luctrev) reports [a successful installation on his NAS 110](https://github.com/hn/seagate-blackarmor-nas/issues/6), so the hardware of the NAS 110 and 220 seems to be reasonable compatible.
-
-#### NAS 400 / 420 /440
-
-Quick specs: 1.2 Ghz CPU, 256MB RAM, 3 USB ports, 2 network interfaces, max 4 drives.
 
 All the NAS 4XX series products have the same 4-bay enclosure. The second digit in this number scheme refers to the
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
@@ -45,13 +49,14 @@ this script does not work, do NOT try to install on a NAS 440, this will brick y
 Thankfully, [Andreas Fischer](https://github.com/bantu) did [very some promising work](https://gist.github.com/bantu/d456865b91be6c99320b)
 on providing an [U-Boot](https://github.com/bantu/u-boot/compare/master...sg-ba-440) and
 [kernel patch](https://github.com/bantu/linux/compare/master...kw-ba-400-dts). Make sure to check his pages and help to finalize
-the patches. As I do not have access to NAS 4XX hardware, I can not help and test this device.
+the patches.
 
 ### Prerequisites
 
-Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUSB0 115200`) by connecting a 3.3V serial cable to connector `CN5` pins 1=TX, 4=RX and 6=GND like this:
+Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUSB0 115200`) by connecting a 3.3V serial cable like this:
 
-![Blackarmor NAS220 serial port](https://github.com/hn/seagate-blackarmor-nas/blob/master/blackarmor-nas220-debian-serialport.jpg "serial port")
+![Blackarmor NAS220 serial port](https://github.com/hn/seagate-blackarmor-nas/blob/master/blackarmor-nas220-debian-serialport.jpg "NAS 220 serial port")
+![Blackarmor NAS440 serial port](https://github.com/hn/seagate-blackarmor-nas/blob/master/blackarmor-nas440-debian-serialport.jpg "NAS 440 serial port")
 
 ### Preparing kernel and initrd images
 
@@ -61,7 +66,7 @@ Use your favourite Linux workstation to execute [`blackarmor-nas220-debian-prep.
 $ ./blackarmor-nas220-debian-prep.sh 
 Using kernel 4.9.0-8 for installation.
 mkdir: created directory 'blackarmor-nas220-debian'
-URL:https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot.kwb [553356/553356] -> "u-boot.kwb" [1]
+URL:https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-nas220.kwb [553356/553356] -> "u-boot-nas220.kwb" [1]
 URL:https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin [65536/65536] -> "u-boot-env.bin" [1]
 URL:https://cdn-fastly.deb.debian.org/debian/dists/stretch/main/installer-armel/current/images/kirkwood/netboot/initrd.gz [11703715/11703715] -> "initrd.gz" [1]
 URL:https://cdn-fastly.deb.debian.org/debian/dists/stretch/main/installer-armel/current/images/kirkwood/netboot/vmlinuz-4.9.0-8-marvell [2056160/2056160] -> "vmlinuz-4.9.0-8-marvell" [1]
@@ -79,13 +84,13 @@ Data Size:    11703715 Bytes = 11429.41 kB = 11.16 MB
 Load Address: 00000000
 Entry Point:  00000000
 
-u-boot.kwb file size (512-byte aligned): 0x87200
+u-boot-nas220.kwb file size (512-byte aligned): 0x87200
 u-boot-env.bin file size (512-byte aligned): 0x10000
 
 Execute the following commands on the Blackarmor NAS:
 
 usb start
-fatload usb 0:1 0x800000 u-boot.kwb
+fatload usb 0:1 0x800000 u-boot-nas220.kwb
 nand erase 0x0 0x87200
 nand write 0x800000 0x0 0x87200
 fatload usb 0:1 0x800000 u-boot-env.bin
@@ -93,7 +98,7 @@ nand erase 0xA0000 0x10000
 nand write 0x800000 0xA0000 0x10000
 ```
 
-Copy the files `u-boot.kwb`, `u-boot-env.bin`, `uImage-dtb` and `uInitrd` from directory `blackarmor-nas220-debian` to a FAT formatted USB stick. Carefully examine the flash commands shown at the end of the script output.
+Copy the files `u-boot-nas220.kwb`, `u-boot-env.bin`, `uImage-dtb` and `uInitrd` from directory `blackarmor-nas220-debian` to a FAT formatted USB stick. Carefully examine the flash commands shown at the end of the script output.
 
 ### Flashing Das U-Boot bootloader
 
@@ -159,8 +164,8 @@ Marvell>> usb start
 USB:   scanning bus for devices... 3 USB Device(s) found
        scanning bus for storage devices... 1 Storage Device(s) found
 Marvell>>
-Marvell>> fatload usb 0:1 0x800000 u-boot.kwb
-reading u-boot.kwb
+Marvell>> fatload usb 0:1 0x800000 u-boot-nas220.kwb
+reading u-boot-nas220.kwb
 .............................................................
 553356 bytes read
 Marvell>> nand erase 0x0 0x87200
@@ -188,7 +193,7 @@ Marvell>> reset
 
 Make sure to restart the NAS via `reset` command after flashing the bootloader!
 
-If your nas just restarts with the error message `cpu reset` after the `fatload usb 0:1 0x800000 u-boot.kwb` command try to format the usb stick to `ext2` and use `ext2load usb 0:1 ...` instead.
+If your nas just restarts with the error message `cpu reset` after the `fatload usb 0:1 0x800000 u-boot-nas220.kwb` command try to format the usb stick to `ext2` and use `ext2load usb 0:1 ...` instead.
 
 ### Starting Debian installation
 
