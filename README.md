@@ -3,46 +3,39 @@
 ## Preamble
 Some years ago [I reverse engineered](seagate-blackarmor-nas.txt) the Seagate Blackarmor NAS 220 and found a convenient way on [how to enable SSH on the device](sg2000-2000.1337.sp42.img). Later, the same mechanism was used to install an [alternative Linux firmware (Debian 5 Lenny)](custom-sg2000-2000.1337.sp99.img). Obviously, Debian 5 Lenny has reached end of life and should not be used in production anymore. 
 
-## Debian 10 Buster
-
-Evgeni Dobrev created a [kernel patch to include hardware support for the Blackarmor 220 in the mainline linux kernel](https://lore.kernel.org/patchwork/patch/529020/) and Moritz Rosenthal has released detailed docs on [how to update the system with an up-to-date linux kernel and Debian distribution](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian). I used their work to create some (hopefully) helpful scripts which streamline the process a little further.
-
 With the following instructions you'll manage to install a fully updateable Debian 10 Buster system to the NAS (kernel and initrd stored in NAND flash, updated via [flash-kernel package](https://packages.debian.org/stable/flash-kernel)).
 
-(It's still possible to install Debian 9 Stretch by changing `DEBDIST=buster` to `DEBDIST=stretch` in `blackarmor-nas220-debian-prep.sh`)
+## Hardware
 
-### Warning
-
-This completely removes the Seagate firmware and bootloader -- and there is no easy way of going back. There is a risk of bricking your device, especially if the u-boot bootloader does not start. You have been warned.
-
-### Hardware
-
-#### NAS 110
+### NAS 110
 
 Quick specs: 800 Mhz CPU (Marvell 88F6192), 128MB RAM, 1 USB port, 1 network interface, max 1 drive. Motherboard
 codename 'Mono'.
 
 User [luctrev](https://github.com/luctrev) reports [a successful installation on his NAS 110](https://github.com/hn/seagate-blackarmor-nas/issues/6), so the hardware of the NAS 110 and 220 seems to be reasonable compatible.
 
-#### NAS 220
+### NAS 220
 
 Quick specs: 800 Mhz CPU (Marvell 88F6192), 128MB RAM, 2 USB ports, 1 network interface, max 2 drives. Motherboard
-codename '[Lassen](https://en.wikipedia.org/wiki/Lassen_Peak)'.
+codename '[Lassen](https://en.wikipedia.org/wiki/Lassen_Peak)', based on Marvell DB-88F6192A-BP development board.
 
 This script has been developed and tested on the Blackarmor NAS 220. There
 haven't been any error reports for a long time, so I consider the system as
 stable.
 
-#### NAS 400 / 420 / 440
+### NAS 400 / 420 / 440
 
 Quick specs: 1.2 Ghz CPU (Marvell 88F6281), 256MB RAM, 3 USB ports, 2 network interfaces, max 4 drives. Motherboard
-codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)'.
-
+codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)', based on Marvell DB-88F6281A-BP development board.
 
 All the NAS 4XX series products have the same 4-bay enclosure. The second digit in this number scheme refers to the
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
-Drives 3 and 4 are connected to the 88F6281 SoC, drives 1 and 2 are connected to a 88SE6121, which is connected via PCIe.
+Drives 3 and 4 are connected to the 88F6281 SoC, drives 1 and 2 are connected to a 88SE6121 SATA-II controller, which is connected via PCIe.
+
+The LCD has a HD44780 compatible controller communicating via 12 GPIO pins (8 bit data
+width). The LEDs are connected via an 8-bit serial-in/parallel-out 74AHC164 shift register.
+Various buttons (power, reset, LCD up/down) are connected via GPIO pins as well.
 
 The NAS 4XX is [NOT compatible with Evgenis Kernel patch](https://github.com/hn/seagate-blackarmor-nas/issues/5) and therefore
 this script does not work, do NOT try to install on a NAS 440, this will brick your device!
@@ -50,6 +43,14 @@ Thankfully, [Andreas Fischer](https://github.com/bantu) did [very some promising
 on providing an [U-Boot](https://github.com/bantu/u-boot/compare/master...sg-ba-440) and
 [kernel patch](https://github.com/bantu/linux/compare/master...kw-ba-400-dts). Make sure to check his pages and help to finalize
 the patches.
+
+## Install Debian GNU/Linux 10 Buster
+
+Evgeni Dobrev created a [kernel patch to include hardware support for the Blackarmor 220 in the mainline linux kernel](https://lore.kernel.org/patchwork/patch/529020/) and Moritz Rosenthal has released detailed docs on [how to update the system with an up-to-date linux kernel and Debian distribution](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian). I used their work to create some (hopefully) helpful scripts which streamline the process a little further.
+
+### Warning
+
+This completely removes the Seagate firmware and bootloader -- and there is no easy way of going back. There is a risk of bricking your device, especially if the u-boot bootloader does not start. You have been warned.
 
 ### Prerequisites
 
@@ -335,4 +336,43 @@ Exit the shell, remove USB stick and reboot the system via the Debian installer 
 - As Moritz [suggests](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian#tuning) it is advisable to install the `lm-sensors` and `hdparm` packages.
 
 - He also notes that you can adjust the fan speed by echo-ing the desired speed to sysfs: `echo 128 > /sys/class/i2c-dev/i2c-0/device/0-002e/pwm1`.
+  Debian package `fancontrol` might also be useful.
+
+## Revive a bricked device
+
+The Marvell SoC waits for a special 'magic' sequence at a very early boot
+stage and, when it is received, it accepts to transfer the boot loader via
+Xmodem. `kwboot` can be used if your device is bricked or if you want to
+test an U-Boot image before actually flashing to NAND. Simply set up the
+serial port like this:
+
+```
+$ kwboot -b u-boot-nas440.kwb -p -t /dev/ttyS8
+Sending boot message. Please reboot the target.../
+Sending boot image...
+  0 % [......................................................................]
+  1 % [......................................................................]
+  3 % [......................................................................]
+ ...
+ 95 % [......................................................................]
+ 97 % [......................................................................]
+ 99 % [....................................]
+[Type Ctrl-\ + c to quit]
+
+U-Boot 2017.11 (May 20 2021 - 11:42:00 +0200)
+NAS 440
+
+SoC:   Kirkwood 88F6281_A1
+DRAM:  256 MiB
+WARNING: Caches not enabled
+NAND:  32 MiB
+In:    serial
+Out:   serial
+Err:   serial
+
+nas440>
+```
+
+To permanently flash the bootloader to NAND, follow the steps described
+in [Flashing Das U-Boot bootloader](#Flashing-Das-U-Boot-bootloader).
 
