@@ -50,7 +50,8 @@ Evgeni Dobrev created a [kernel patch to include hardware support for the Blacka
 
 ### Warning
 
-This completely removes the Seagate firmware and bootloader -- and there is no easy way of going back. There is a risk of bricking your device, especially if the u-boot bootloader does not start. You have been warned.
+This completely removes the Seagate firmware and bootloader -- and there is no easy way of going back. There is a risk of bricking your device
+([but there may be a way to revive it](#Revive-a-bricked-device)). You have been warned.
 
 ### Prerequisites
 
@@ -61,11 +62,12 @@ Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUS
 
 ### Preparing kernel and initrd images
 
-Use your favourite Linux workstation to execute [`blackarmor-nas220-debian-prep.sh`](https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/blackarmor-nas220-debian-prep.sh) to download and prepare Das U-Boot bootloader and kernel image:
+Use your favourite Linux workstation to execute [`blackarmor-nas-debian-prep.sh`](https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/blackarmor-nas-debian-prep.sh) to download and prepare Das U-Boot bootloader and kernel image:
 
 ```
-$ ./blackarmor-nas220-debian-prep.sh 
-Using kernel 4.9.0-8 for installation.
+$ ./blackarmor-nas-debian-prep.sh nas220
+NAS type set to: nas220
+Using Debian dist 'buster' with kernel 4.9.0-8 for installation.
 mkdir: created directory 'blackarmor-nas220-debian'
 URL:https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-nas220.kwb [553356/553356] -> "u-boot-nas220.kwb" [1]
 URL:https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin [65536/65536] -> "u-boot-env.bin" [1]
@@ -267,12 +269,12 @@ Before rebooting the installation system (the `Installation complete` screen app
 # cd /tmp
 ```
 
-Download and execute [`blackarmor-nas220-debian-postinstall.sh`](https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/blackarmor-nas220-debian-postinstall.sh) like this:
+Download and execute [`blackarmor-nas-debian-postinstall.sh`](https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/blackarmor-nas-debian-postinstall.sh) like this:
 
 ```
-# wget https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/blackarmor-nas220-debian-postinstall.sh
-# chmod +x blackarmor-nas220-debian-postinstall.sh
-# ./blackarmor-nas220-debian-postinstall.sh
+# wget https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/blackarmor-nas-debian-postinstall.sh
+# chmod +x blackarmor-nas-debian-postinstall.sh
+# ./blackarmor-nas-debian-postinstall.sh
 Reading package lists... Done 
 Building dependency tree
 Reading state information... Done
@@ -340,8 +342,8 @@ Exit the shell, remove USB stick and reboot the system via the Debian installer 
 
 ## Revive a bricked device
 
-The Marvell SoC waits for a special 'magic' sequence at a very early boot
-stage and, when it is received, it accepts to transfer the boot loader via
+The Marvell SoC waits in a very early boot phase on the serial port for a
+special "magic" sequence, and when this is received, it accepts to transfer the boot loader via
 Xmodem. `kwboot` can be used if your device is bricked or if you want to
 test an U-Boot image before actually flashing to NAND. Simply set up the
 serial port like this:

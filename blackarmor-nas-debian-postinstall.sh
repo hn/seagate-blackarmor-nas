@@ -1,10 +1,10 @@
 #!/bin/bash -e
 #
-# blackarmor-nas220-debian-postinstall.sh V1.00
+# blackarmor-nas-debian-postinstall.sh
 #
-# Install Debian GNU/Linux to a Seagate Blackarmor NAS 220
+# Install Debian GNU/Linux to a Seagate Blackarmor NAS 110 / 220 / 440
 #
-# (C) 2018-2019 Hajo Noerenberg
+# (C) 2018-2021 Hajo Noerenberg
 #
 #
 # http://www.noerenberg.de/
