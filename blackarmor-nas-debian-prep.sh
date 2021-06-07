@@ -43,7 +43,7 @@ while [ $# -gt 0 ]; do
 		;;
 	nas440)
 		NASMODEL=$1
-		echo -e "\nWARNING: Blackarmor NAS 440 support is work in progress. CHeck back later.\n"
+		echo -e "\nWARNING: Blackarmor NAS 440 support is work in progress. Check back later.\n"
 		exit 1
 		;;
 	*)
@@ -67,8 +67,8 @@ fi
 PREPDIR=blackarmor-$NASMODEL-debian
 KERNELVER=$(wget -qO- $DEBMIRROR/netboot/ | sed -n 's/.*vmlinuz-\([^\t ]*\)-marvell.*/\1/p')
 
-echo "NAS type set to: $NASMODEL"
-echo "Using Debian dist '$DEBDIST' with kernel $KERNELVER for installation."
+echo "NAS model set to: $NASMODEL"
+echo "Using Debian dist '$DEBDIST' with Debian kernel version '$KERNELVER' for installation."
 
 test -d $PREPDIR || mkdir -v $PREPDIR
 cd $PREPDIR
@@ -77,32 +77,64 @@ rm -vf uImage-dtb uInitrd
 
 if $REBUILD; then
 	test -x /usr/bin/arm-none-eabi-gcc || apt-get install gcc-arm-none-eabi
+	export CROSS_COMPILE=arm-none-eabi-
+	export ARCH=arm
+
+	# Das U-Boot bootloader
 	wget -nc ftp://ftp.denx.de/pub/u-boot/$UBOOT.tar.bz2
 	tar xjf $UBOOT.tar.bz2
 	if [ $NASMODEL = "nas440" ]; then
-		wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/$UBOOT-$NASMODEL.diff
+		wget -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/$UBOOT-$NASMODEL.diff
 		patch -p0 < $UBOOT-$NASMODEL.diff
 	fi
 	cd $UBOOT
-	export CROSS_COMPILE=arm-none-eabi-
-	export ARCH=arm
 	make ${NASMODEL}_defconfig
 	make -j2
 	./tools/mkimage -n ./board/Seagate/$NASMODEL/kwbimage.cfg -T kwbimage -a 0x00600000 -e 0x00600000 -d u-boot.bin ../u-boot-$NASMODEL.kwb
 	cd ..
+
+	# Linux kernel DTB
+	if [ $NASMODEL = "nas440" ]; then
+		test -x /usr/bin/bison || apt-get install bison
+		test -x /usr/bin/flex || apt-get install flex
+		test -f /usr/include/openssl/bio.h || apt-get install libssl-dev
+
+		LATESTDKL=$(curl -sI https://sources.debian.org/api/src/linux/$DEBDIST/ | grep -i Location)
+		KV=$(echo "$LATESTDKL" | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
+		echo "Debian dist '$DEBDIST' with Debian kernel version '$KERNELVER' is based on vanilla kernel '$KV'."
+		KM=$(echo "$KV" | sed -n 's/^\([0-9]\+\)\..*/\1/p')
+		wget -nc https://cdn.kernel.org/pub/linux/kernel/v${KM}.x/linux-$KV.tar.xz
+		wget -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/linux-$NASMODEL.diff
+		# Extract minimal subset of kernel source, use full kernel source if you experience problems
+		tar xvJf linux-$KV.tar.xz linux-$KV/Makefile linux-$KV/arch/arm/ linux-$KV/scripts/ linux-$KV/include/ linux-$KV/tools/
+		tar xvJf linux-$KV.tar.xz --wildcards "linux-$KV/*Kconfig*"
+		cd linux-$KV
+		patch -p1 < ../linux-$NASMODEL.diff
+
+		make defconfig
+		make kirkwood-blackarmor-$NASMODEL.dtb
+
+		mv -v ./arch/arm/boot/dts/kirkwood-blackarmor-$NASMODEL.dtb ../
+		cd ..
+	fi
 else
-	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-$NASMODEL.kwb
+	wget -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-$NASMODEL.kwb
+	if [ $NASMODEL = "nas440" ]; then
+		wget -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/kirkwood-blackarmor-nas440.dtb
+	fi
 fi
 
-if [ -f u-boot-env.txt -a -x ./$UBOOT/tools/mkenvimage ]; then
-	./$UBOOT/tools/mkenvimage -p 0 -s 65536 -o u-boot-env.bin u-boot-env.txt
+if [ -f u-boot-env.txt ]; then
+	mkenvimage -p 0 -s 65536 -o u-boot-env.bin u-boot-env.txt
 else
-	wget -nv -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin
+	wget -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin
 fi
 
-wget -nv -nc $DEBMIRROR/netboot/initrd.gz
-wget -nv -nc $DEBMIRROR/netboot/vmlinuz-$KERNELVER-marvell
-wget -nv -nc $DEBMIRROR/device-tree/kirkwood-blackarmor-nas220.dtb
+wget -nc $DEBMIRROR/netboot/initrd.gz
+wget -nc $DEBMIRROR/netboot/vmlinuz-$KERNELVER-marvell
+if [ $NASMODEL = "nas220" ]; then
+	wget -nc $DEBMIRROR/device-tree/kirkwood-blackarmor-nas220.dtb
+fi
 
 echo
 
