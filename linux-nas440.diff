@@ -1,0 +1,176 @@
+diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts linux-4.19.181/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts
+--- linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts	1970-01-01 01:00:00.000000000 +0100
++++ linux-4.19.181/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts	2021-06-07 10:19:41.021974264 +0200
+@@ -0,0 +1,161 @@
++/*
++ * Device Tree file for Seagate BlackArmor NAS400/440
++ *
++ * Copyright (C) 2015 Andreas Fischer <af@bantuX.org>
++ *
++ * Licensed under GPLv2 or later.
++ */
++
++/dts-v1/;
++
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
++
++/ {
++	model = "Seagate BlackArmor NAS440";
++	compatible = "seagate,blackarmor-nas400", "seagate,blackarmor-nas440",
++		"marvell,kirkwood-88f6281", "marvell,kirkwood";
++
++	memory { /* 256 MB */
++		device_type = "memory";
++		reg = <0x00000000 0x10000000>;
++	};
++
++	chosen {
++		bootargs = "console=ttyS0,115200n8";
++		stdout-path = &uart0;
++	};
++
++	mbus {
++		pcie-controller {
++			status = "okay";
++
++			pcie@1,0 {
++				status = "okay";
++			};
++		};
++	};
++
++	regulators {
++		compatible = "simple-bus";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		pinctrl-0 = <&pmx_power_sata0 &pmx_power_sata1>;
++		pinctrl-names = "default";
++
++		sata0_power: regulator@1 {
++			compatible = "regulator-fixed";
++			reg = <1>;
++			regulator-name = "SATA0 Power";
++			regulator-min-microvolt = <5000000>;
++			regulator-max-microvolt = <5000000>;
++			enable-active-high;
++			regulator-always-on;
++			regulator-boot-on;
++			gpio = <&gpio0 24 GPIO_ACTIVE_LOW>;
++		};
++
++		sata1_power: regulator@2 {
++			compatible = "regulator-fixed";
++			reg = <2>;
++			regulator-name = "SATA1 Power";
++			regulator-min-microvolt = <5000000>;
++			regulator-max-microvolt = <5000000>;
++			enable-active-high;
++			regulator-always-on;
++			regulator-boot-on;
++			gpio = <&gpio0 28 GPIO_ACTIVE_LOW>;
++		};
++	};
++};
++
++/*
++ * Serial port routed to connector CN4
++ *
++ * pin 1 - TX
++ * pin 4 - RX
++ * pin 6 - GND
++ */
++&uart0 {
++	status = "okay";
++};
++
++&pinctrl {
++	pinctrl-0 = <&pmx_button_reset &pmx_button_power>;
++	pinctrl-names = "default";
++
++	pmx_act_sata0: pmx-act-sata0 {
++		marvell,pins = "mpp15";
++		marvell,function = "sata0";
++	};
++
++	pmx_act_sata1: pmx-act-sata1 {
++		marvell,pins = "mpp16";
++		marvell,function = "sata1";
++	};
++
++	pmx_power_sata0: pmx-power-sata0 {
++		marvell,pins = "mpp24";
++		marvell,function = "gpio";
++	};
++
++	pmx_power_sata1: pmx-power-sata1 {
++		marvell,pins = "mpp28";
++		marvell,function = "gpio";
++	};
++
++	pmx_button_reset: pmx-button-reset {
++		marvell,pins = "mpp29";
++		marvell,function = "gpio";
++	};
++
++	pmx_button_power: pmx-button-power {
++		marvell,pins = "mpp49";
++		marvell,function = "gpio";
++	};
++};
++
++/*
++ * Drives 3 and 4 are connected to the 88F6281 SoC.
++ * Drives 1 and 2 are connected to a 88SE6121, which is connected via PCIe.
++ */
++&sata {
++	status = "okay";
++	nr-ports = <2>;
++};
++
++&i2c0 {
++	status = "okay";
++	adt7473: thermal@2e {
++		compatible = "adi,adt7473";
++		reg = <0x2e>;
++	};
++};
++
++&nand {
++	status = "okay";
++};
++
++&mdio {
++	status = "okay";
++	ethphy0: ethernet-phy@8 {
++		reg = <8>;
++	};
++	ethphy1: ethernet-phy@9 {
++		reg = <9>;
++	};
++};
++
++&eth0 {
++	status = "okay";
++	ethernet0-port@0 {
++		phy-handle = <&ethphy0>;
++	};
++};
++
++&eth1 {
++	status = "okay";
++	ethernet1-port@0 {
++		phy-handle = <&ethphy1>;
++	};
++};
+diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/Makefile linux-4.19.181/arch/arm/boot/dts/Makefile
+--- linux-4.19.181.orig/arch/arm/boot/dts/Makefile	2021-03-17 16:43:52.000000000 +0100
++++ linux-4.19.181/arch/arm/boot/dts/Makefile	2021-06-07 10:17:26.670817295 +0200
+@@ -234,6 +234,7 @@
+ dtb-$(CONFIG_MACH_KIRKWOOD) += \
+ 	kirkwood-b3.dtb \
+ 	kirkwood-blackarmor-nas220.dtb \
++	kirkwood-blackarmor-nas440.dtb \
+ 	kirkwood-cloudbox.dtb \
+ 	kirkwood-d2net.dtb \
+ 	kirkwood-db-88f6281.dtb \

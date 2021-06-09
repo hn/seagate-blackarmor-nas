@@ -1,7 +1,7 @@
 # seagate-blackarmor-nas
 
 ## Preamble
-Some years ago [I reverse engineered](seagate-blackarmor-nas.txt) the Seagate Blackarmor NAS 220 and found a convenient way on [how to enable SSH on the device](archive/sg2000-2000.1337.sp42.img). Later, the same mechanism was used to install an [alternative Linux firmware (Debian 5 Lenny)](archive/custom-sg2000-2000.1337.sp99.img). Obviously, Debian 5 Lenny has reached end of life and should not be used in production anymore.
+Some years ago [I reverse engineered](archive/seagate-blackarmor-nas.txt) the Seagate Blackarmor NAS 220 and found a convenient way on [how to enable SSH on the device](archive/sg2000-2000.1337.sp42.img). Later, the same mechanism was used to install an [alternative Linux firmware (Debian 5 Lenny)](archive/custom-sg2000-2000.1337.sp99.img). Obviously, Debian 5 Lenny has reached end of life and should not be used in production anymore.
 
 With the following instructions you'll manage to install a fully updateable Debian 10 Buster system to the NAS (kernel and initrd stored in NAND flash, updated via [flash-kernel package](https://packages.debian.org/stable/flash-kernel)).
 
@@ -37,16 +37,14 @@ The LCD has a HD44780 compatible controller communicating via 12 GPIO pins (8 bi
 width). The LEDs are connected via an 8-bit serial-in/parallel-out 74AHC164 shift register.
 Various buttons (power, reset, LCD up/down) are connected via GPIO pins as well.
 
-The NAS 4XX is [NOT compatible with Evgenis Kernel patch](https://github.com/hn/seagate-blackarmor-nas/issues/5) and therefore
-this script does not work, do NOT try to install on a NAS 440, this will brick your device!
-Thankfully, [Andreas Fischer](https://github.com/bantu) did [very some promising work](https://gist.github.com/bantu/d456865b91be6c99320b)
-on providing an [U-Boot](https://github.com/bantu/u-boot/compare/master...sg-ba-440) and
-[kernel patch](https://github.com/bantu/linux/compare/master...kw-ba-400-dts). Make sure to check his pages and help to finalize
-the patches.
+This script uses [patches for the NAS 440](https://gist.github.com/bantu/d456865b91be6c99320b)
+by [Andreas Fischer](https://github.com/bantu) with further modifications
+([U-Boot](u-boot-2017.11-nas440.diff) and [kernel](linux-nas440.diff)) by me.
+
+:warning: Warning: Support for the NAS 440 is currently alpha quality! Things are incomplete, buggy and unstable.
+Do not install to your NAS if you plan to use it for anything useful.
 
 ## Install Debian GNU/Linux 10 Buster
-
-Evgeni Dobrev created a [kernel patch to include hardware support for the Blackarmor 220 in the mainline linux kernel](https://lore.kernel.org/patchwork/patch/529020/) and Moritz Rosenthal has released detailed docs on [how to update the system with an up-to-date linux kernel and Debian distribution](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian). I used their work to create some (hopefully) helpful scripts which streamline the process a little further.
 
 ### Warning
 
@@ -105,7 +103,8 @@ Copy the files `u-boot-nas220.kwb`, `u-boot-env.bin`, `uImage-dtb` and `uInitrd`
 
 ### Flashing Das U-Boot bootloader
 
-This step is only necessary for the very first installation or if you're upgrading from Debian 9 Stretch to Debian 10 Buster. If you're updating within the same Debian release or re-installing, directly skip to [Starting Debian installation](#Starting-Debian-installation).
+This step is only necessary for the very first installation. If you're updating or re-installing
+Debian, directly skip to [Starting Debian installation](#Starting-Debian-installation).
 
 Use the serial terminal to stop the Seagate boot process and to show the ethernet MAC address:
 
@@ -377,4 +376,18 @@ nas440>
 
 To permanently flash the bootloader to NAND, follow the steps described
 in [Flashing Das U-Boot bootloader](#Flashing-Das-U-Boot-bootloader).
+
+## Credits
+
+This project is based on the work of several dedicated people:
+
+- Evgeni Dobrev created a [kernel patch to include hardware support for the Blackarmor 220 in the mainline linux
+  kernel](https://lore.kernel.org/patchwork/patch/529020/).
+
+- Moritz Rosenthal has released detailed docs on [how to update the NAS 220 with an up-to-date linux kernel and Debian
+  distribution](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian).
+
+- [Andreas Fischer](https://github.com/bantu) did [groundbreaking work](https://gist.github.com/bantu/d456865b91be6c99320b)
+  in providing an initial [U-Boot](https://github.com/bantu/u-boot/compare/master...sg-ba-440) and
+  [kernel patch](https://github.com/bantu/linux/compare/master...kw-ba-400-dts) for the NAS 440.
 

@@ -43,7 +43,9 @@ while [ $# -gt 0 ]; do
 		;;
 	nas440)
 		NASMODEL=$1
-		echo -e "\nWARNING: Blackarmor NAS 440 support is work in progress. Check back later.\n"
+		echo -ne "\nWARNING: Support for the NAS 440 is currently alpha quality! "
+		echo -ne "Things are incomplete, buggy and unstable. Do not install to your NAS if "
+		echo -e "you plan to use it for anything useful.\n"
 		exit 1
 		;;
 	*)
