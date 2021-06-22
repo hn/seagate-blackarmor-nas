@@ -25,24 +25,14 @@ stable.
 
 ### NAS 400 / 420 / 440
 
-Quick specs: 1.2 Ghz CPU (Marvell 88F6281), 256MB RAM, 3 USB ports, 2 network interfaces, max 4 drives. Motherboard
+Quick specs: 1.2 Ghz CPU (Marvell 88F6281), 256MB RAM, 4 USB ports, 2 network interfaces, max 4 drives. Motherboard
 codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)', based on Marvell DB-88F6281A-BP development board.
 
 All the NAS 4XX series products have the same 4-bay enclosure. The second digit in this number scheme refers to the
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
-Drives 3 and 4 are connected to the 88F6281 SoC, drives 1 and 2 are connected to a 88SE6121 SATA-II controller, which is connected via PCIe.
-
-The LCD has a HD44780 compatible controller communicating via 12 GPIO pins (8 bit data
-width). The LEDs are connected via an 8-bit serial-in/parallel-out 74AHC164 shift register.
-Various buttons (power, reset, LCD up/down) are connected via GPIO pins as well.
-
-This script uses [patches for the NAS 440](https://gist.github.com/bantu/d456865b91be6c99320b)
-by [Andreas Fischer](https://github.com/bantu) with further modifications
-([U-Boot](u-boot-2017.11-nas440.diff) and [kernel](linux-nas440.diff)) by me.
-
-:warning: Warning: Support for the NAS 440 is currently alpha quality! Things are incomplete, buggy and unstable.
-Do not install to your NAS if you plan to use it for anything useful.
+:warning: Warning: Support for the NAS 440 is currently alpha quality! Things are incomplete, buggy and unstable
+([see details](#NAS-440-patch-details)). Do not install to your NAS if you plan to use it for anything useful.
 
 ## Install Debian GNU/Linux 10 Buster
 
@@ -337,7 +327,7 @@ Exit the shell, remove USB stick and reboot the system via the Debian installer 
 - As Moritz [suggests](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian#tuning) it is advisable to install the `lm-sensors` and `hdparm` packages.
 
 - He also notes that you can adjust the fan speed by echo-ing the desired speed to sysfs: `echo 128 > /sys/class/i2c-dev/i2c-0/device/0-002e/pwm1`.
-  Debian package `fancontrol` might also be useful.
+  With `hwmon` one can [adjust the fan speed automatically](https://openwrt.org/toh/seagate/blackarmor_nas220#system_fan).
 
 ## Revive a bricked device
 
@@ -377,6 +367,30 @@ nas440>
 To permanently flash the bootloader to NAND, follow the steps described
 in [Flashing Das U-Boot bootloader](#Flashing-Das-U-Boot-bootloader).
 
+## NAS 440 patch details
+
+Support for the NAS 440 is work-in-progress. This script uses
+[patches](https://gist.github.com/bantu/d456865b91be6c99320b) by
+[Andreas Fischer](https://github.com/bantu) with further modifications
+([U-Boot](u-boot-2017.11-nas440.diff) and [kernel](linux-nas440.diff)) by
+me:
+
+- :construction_worker: Hard disk drives 1 and 2 are connected to a 88SE6121 SATA-II
+  controller, which is connected via PCIe. The controller is working, unfortunately
+  the hard drives are _not_ beeing detected.
+
+- Hard disk drives 3 and 4 are connected to the 88F6281 SoC (on chip peripherals, OCP)
+  and working. HDD power for drives 3 and 4 can be controlled via GPIO pin 28.
+
+- The LCD has a HD44780 compatible controller communicating via 12 GPIO pins (8 bit data
+  width). Support within U-Boot has been implemented (see `lcd_*` functions in `nas440.c`).
+
+- The LEDs are connected via an 8-bit serial-in/parallel-out 74AHC164 shift register.
+  Support within U-Boot has been implemented (see `led_*` functions in `nas440.c`).
+
+- Various buttons (power, reset, LCD up/down) are connected via GPIO pins
+  (see `GPIO_*` definitions in `nas440.h`).
+
 ## Credits
 
 This project is based on the work of several dedicated people:
@@ -390,4 +404,8 @@ This project is based on the work of several dedicated people:
 - [Andreas Fischer](https://github.com/bantu) did [groundbreaking work](https://gist.github.com/bantu/d456865b91be6c99320b)
   in providing an initial [U-Boot](https://github.com/bantu/u-boot/compare/master...sg-ba-440) and
   [kernel patch](https://github.com/bantu/linux/compare/master...kw-ba-400-dts) for the NAS 440.
+
+- [Bodhi](https://mibodhi.blogspot.com/) has put enormous work into providing
+  [U-Boot](https://forum.doozan.com/read.php?3,12381) and [Linux kernel and rootfs](https://forum.doozan.com/read.php?2,12096)
+  binaries for other kirkwood-based devices.
 
