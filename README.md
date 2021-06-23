@@ -7,6 +7,9 @@ With the following instructions you'll manage to install a fully updateable Debi
 
 ## Hardware
 
+All Blackarmor NAS devices are based on the Marvell 88F6000 SoC series with Sheeva CPU Technology,
+which has been [released in 2008](https://www.marvell.com/company/newsroom/marvell-introduces-socs-to-boost-digital-home-gateway-and-pc-performance.html).
+
 ### NAS 110
 
 Quick specs: 800 Mhz CPU (Marvell 88F6192), 128MB RAM, 1 USB port, 1 network interface, max 1 drive. Motherboard
@@ -53,8 +56,10 @@ Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUS
 Use your favourite Linux workstation to execute [`blackarmor-nas-debian-prep.sh`](https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/blackarmor-nas-debian-prep.sh) to download and prepare Das U-Boot bootloader and kernel image:
 
 ```
+$ ./blackarmor-nas-debian-prep.sh
+Usage: ./blackarmor-nas-debian-prep.sh [--rebuild] <nas110|nas220|nas440>
 $ ./blackarmor-nas-debian-prep.sh nas220
-NAS type set to: nas220
+NAS model set to: nas220
 Using Debian dist 'buster' with kernel 4.9.0-8 for installation.
 mkdir: created directory 'blackarmor-nas220-debian'
 URL:https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-nas220.kwb [553356/553356] -> "u-boot-nas220.kwb" [1]
@@ -376,7 +381,7 @@ Support for the NAS 440 is work-in-progress. This script uses
 me:
 
 - :construction_worker: Hard disk drives 1 and 2 are connected to a 88SE6121 SATA-II
-  controller, which is connected via PCIe. The controller is working, unfortunately
+  controller, which is connected via PCIe. The controller basically works, unfortunately
   the hard drives are _not_ beeing detected.
 
 - Hard disk drives 3 and 4 are connected to the 88F6281 SoC (on chip peripherals, OCP)
