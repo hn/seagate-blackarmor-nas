@@ -382,7 +382,8 @@ me:
 
 - :construction_worker: Hard disk drives 1 and 2 are connected to a 88SE6121 SATA-II
   controller, which is connected via PCIe. The controller basically works, unfortunately
-  the hard drives are _not_ beeing detected.
+  the hard drives are _not_ beeing detected. Update: 2.5" (5V) hard drives work, 3.5" (12V)
+  hard drives do not work, [see this related bug report](https://forum.doozan.com/read.php?2,96444,98654).
 
 - Hard disk drives 3 and 4 are connected to the 88F6281 SoC (on chip peripherals, OCP)
   and working. HDD power for drives 3 and 4 can be controlled via GPIO pin 28.
