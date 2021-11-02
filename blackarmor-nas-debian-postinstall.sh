@@ -85,6 +85,10 @@ c2VjdG9ycwovZGV2L210ZDEJCTB4MAkJMHgxMDAwMAoK
 ====
 EOF
 
+if [ "$MACHINE" = "Seagate Blackarmor NAS440" ]; then
+	wget -nc -P /etc/flash-kernel/dtbs https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/kirkwood-blackarmor-nas440.dtb
+fi
+
 apt-get --yes install linux-image-marvell
 
 # Debian 9 vs 10
