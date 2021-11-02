@@ -26,8 +26,8 @@
 
 MACHINE=$(tr -d '\0' </proc/device-tree/model)
 
-if [ "$MACHINE" != "Seagate Blackarmor NAS220" ]; then
-	echo "This script has to be executed on the Seagate Blackarmor NAS 220 only"
+if [ "${MACHINE:0:22}" != "Seagate Blackarmor NAS" ]; then
+	echo "This script has to be executed on the Seagate Blackarmor NAS only"
 	exit 1
 fi
 
@@ -49,7 +49,21 @@ Mtd-Kernel: uimage
 Mtd-Initrd: rootfs
 U-Boot-Kernel-Address: 0x00040000
 U-Boot-Initrd-Address: 0x00800000
-Required-Packages: u-boot-tools  
+Required-Packages: u-boot-tools
+EOF
+fi
+
+if ! grep -q "Seagate Blackarmor NAS440" /usr/share/flash-kernel/db/*.db; then
+cat <<EOF >/usr/share/flash-kernel/db/seagate-blackarmor-nas440.db
+Machine: Seagate Blackarmor NAS440
+Kernel-Flavors: kirkwood marvell
+DTB-Id: kirkwood-blackarmor-nas440.dtb
+DTB-Append: yes
+Mtd-Kernel: uimage
+Mtd-Initrd: rootfs
+U-Boot-Kernel-Address: 0x00040000
+U-Boot-Initrd-Address: 0x00800000
+Required-Packages: u-boot-tools
 EOF
 fi
 
