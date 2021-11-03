@@ -16,7 +16,7 @@ diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-black
 +#include "kirkwood-6281.dtsi"
 +
 +/ {
-+	model = "Seagate BlackArmor NAS440";
++	model = "Seagate Blackarmor NAS440";
 +	compatible = "seagate,blackarmor-nas400", "seagate,blackarmor-nas440",
 +		"marvell,kirkwood-88f6281", "marvell,kirkwood";
 +
