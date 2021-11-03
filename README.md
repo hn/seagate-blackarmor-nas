@@ -3,7 +3,8 @@
 ## Preamble
 Some years ago [I reverse engineered](archive/seagate-blackarmor-nas.txt) the Seagate Blackarmor NAS 220 and found a convenient way on [how to enable SSH on the device](archive/sg2000-2000.1337.sp42.img). Later, the same mechanism was used to install an [alternative Linux firmware (Debian 5 Lenny)](archive/custom-sg2000-2000.1337.sp99.img). Obviously, Debian 5 Lenny has reached end of life and should not be used in production anymore.
 
-With the following instructions you'll manage to install a fully updateable Debian 10 Buster system to the NAS (kernel and initrd stored in NAND flash, updated via [flash-kernel package](https://packages.debian.org/stable/flash-kernel)).
+With the following instructions you'll manage to install a fully updateable Debian GNU/Linux system
+to the NAS (kernel and initrd stored in NAND flash, updated via [flash-kernel package](https://packages.debian.org/stable/flash-kernel)).
 
 ## Hardware
 
@@ -37,7 +38,10 @@ number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1
 :warning: Warning: Support for the NAS 440 is currently alpha quality! Things are incomplete, buggy and unstable
 ([see details](#NAS-440-patch-details)). Do not install to your NAS if you plan to use it for anything useful.
 
-## Install Debian GNU/Linux 10 Buster
+## Install Debian GNU/Linux
+
+This script supports installing Debian 9 (Stretch), Debian 10 (Buster) and
+Debian 11 (Bullseye, default at time of writing).
 
 ### Warning
 
