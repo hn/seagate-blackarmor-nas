@@ -14,7 +14,7 @@ which has been [released in 2008](https://www.marvell.com/company/newsroom/marve
 ### NAS 110
 
 Quick specs: 800 Mhz CPU (Marvell 88F6192), 128MB RAM, 1 USB port, 1 network interface, max 1 drive. Motherboard
-codename 'Mono'.
+codename '[Mono](https://en.wikipedia.org/wiki/Mono_Lake)'.
 
 User [luctrev](https://github.com/luctrev) reports [a successful installation on his NAS 110](https://github.com/hn/seagate-blackarmor-nas/issues/6), so the hardware of the NAS 110 and 220 seems to be reasonable compatible.
 
@@ -36,12 +36,13 @@ All the NAS 4XX series products have the same 4-bay enclosure. The second digit 
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
 :warning: Warning: Support for the NAS 440 is currently alpha quality! Things are incomplete, buggy and unstable
-([see details](#NAS-440-patch-details)). Do not install to your NAS if you plan to use it for anything useful.
+(hard disk slots 1 and 2 do **not** work - [see details](#NAS-440-patch-details)). Do not install to your NAS if you plan to use it for anything useful.
 
 ## Install Debian GNU/Linux
 
-This script supports installing Debian 9 (Stretch), Debian 10 (Buster) and
-Debian 11 (Bullseye, default at time of writing).
+This script generally supports installing Debian 9 (Stretch), Debian 10 (Buster) and
+Debian 11 (Bullseye, default at time of writing). Debian 11 and higher is
+not possible on NAS 110 and 220 due to the available RAM of only 128MB.
 
 ### Warning
 
@@ -155,6 +156,8 @@ Hit any key to stop autoboot:  0
 Marvell>>
 Marvell>> printenv ethaddr
 ethaddr=00:10:75:42:42:42
+Marvell>> printenv eth1addr	# NAS440 only
+eth1addr=00:10:75:42:ca:fe
 ```
 
 Write down the MAC adress, you'll need it later. Connect the USB stick to port 1 of the NAS and flash the new bootloader (enter `usb start ... nand write` commands exactly as shown during preparation phase):
@@ -323,7 +326,8 @@ done.
 Set ethernet MAC address and enable autoboot (only needed after flashing Das U-Boot bootloader):
 
 ```
-# fw_setenv ethaddr 00:10:75:42:42:42
+# fw_setenv ethaddr 00:10:75:42:42:42	# YOUR mac address as noted above
+# fw_setenv eth1addr 00:10:75:42:ca:fe	# NAS440 only (dual NIC)
 # fw_setenv bootdelay 3
 # exit
 # exit

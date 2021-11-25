@@ -24,8 +24,7 @@
 # with this program. If not, see <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
 
-DEBDIST=bullseye
-DEBMIRROR=https://deb.debian.org/debian/dists/$DEBDIST/main/installer-armel/current/images/kirkwood
+RAWREPO=https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master
 UBOOT=u-boot-2017.11
 REBUILD=false
 
@@ -40,9 +39,11 @@ while [ $# -gt 0 ]; do
 		;;
 	nas220)
 		NASMODEL=$1
+		DEBDIST=buster	# Debian 11 (bullseye) and higher not supported with only 128mb of RAM
 		;;
 	nas440)
 		NASMODEL=$1
+		DEBDIST=bullseye
 		echo -ne "\nWARNING: Support for the NAS 440 is currently alpha quality! "
 		echo -ne "Things are incomplete, buggy and unstable. Do not install to your NAS if "
 		echo -e "you plan to use it for anything useful.\n"
@@ -61,21 +62,25 @@ if [ -z "$NASMODEL" ]; then
 	exit 1
 fi
 
-if [ ! -x /usr/bin/mkimage ]; then
+if ! command -v mkimage &>/dev/null; then
 	echo "'mkimage' missing, install 'u-boot-tools' package first"
 	exit 1
 fi
 
-PREPDIR=blackarmor-$NASMODEL-debian
-KERNELVER=$(wget -qO- $DEBMIRROR/netboot/ | sed -n 's/.*vmlinuz-\([^\t ]*\)-marvell.*/\1/p')
+test -n "$NOVERBOSE" || VERBOSE="-v"
+KERNELVER=$(wget $WGETOPTS -qO- $DEBMIRROR/netboot/ | sed -n 's/.*vmlinuz-\([^\t ]*\)-marvell.*/\1/p')
+DEBMIRROR=https://deb.debian.org/debian/dists/$DEBDIST/main/installer-armel/current/images/kirkwood
 
 echo "NAS model set to: $NASMODEL"
 echo "Using Debian dist '$DEBDIST' with Debian kernel version '$KERNELVER' for installation."
 
-test -d $PREPDIR || mkdir -v $PREPDIR
-cd $PREPDIR
+if [ -z "$NOPREPDIR" ]; then
+	PREPDIR=blackarmor-$NASMODEL-debian
+	test -d $PREPDIR || mkdir $VERBOSE $PREPDIR
+	cd $PREPDIR
+fi
 
-rm -vf uImage-dtb uInitrd
+rm $VERBOSE -f uImage-dtb uInitrd
 
 if $REBUILD; then
 	test -x /usr/bin/arm-none-eabi-gcc || apt-get install gcc-arm-none-eabi
@@ -83,10 +88,10 @@ if $REBUILD; then
 	export ARCH=arm
 
 	# Das U-Boot bootloader
-	wget -nc ftp://ftp.denx.de/pub/u-boot/$UBOOT.tar.bz2
+	wget $WGETOPTS -nc ftp://ftp.denx.de/pub/u-boot/$UBOOT.tar.bz2
 	tar xjf $UBOOT.tar.bz2
 	if [ $NASMODEL = "nas440" ]; then
-		wget -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/$UBOOT-$NASMODEL.diff
+		wget $WGETOPTS -nc $RAWREPO/$UBOOT-$NASMODEL.diff
 		patch -p0 < $UBOOT-$NASMODEL.diff
 	fi
 	cd $UBOOT
@@ -105,8 +110,8 @@ if $REBUILD; then
 		KV=$(echo "$LATESTDKL" | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
 		echo "Debian dist '$DEBDIST' with Debian kernel version '$KERNELVER' is based on vanilla kernel '$KV'."
 		KM=$(echo "$KV" | sed -n 's/^\([0-9]\+\)\..*/\1/p')
-		wget -nc https://cdn.kernel.org/pub/linux/kernel/v${KM}.x/linux-$KV.tar.xz
-		wget -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/linux-$NASMODEL.diff
+		wget $WGETOPTS -nc https://cdn.kernel.org/pub/linux/kernel/v${KM}.x/linux-$KV.tar.xz
+		wget $WGETOPTS -nc $RAWREPO/linux-$NASMODEL.diff
 		# Extract minimal subset of kernel source, use full kernel source if you experience problems
 		tar xvJf linux-$KV.tar.xz linux-$KV/Makefile linux-$KV/arch/arm/ linux-$KV/scripts/ linux-$KV/include/ linux-$KV/tools/
 		tar xvJf linux-$KV.tar.xz --wildcards "linux-$KV/*Kconfig*"
@@ -120,22 +125,22 @@ if $REBUILD; then
 		cd ..
 	fi
 else
-	wget -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-$NASMODEL.kwb
+	wget $WGETOPTS -nc $RAWREPO/u-boot-$NASMODEL.kwb
 	if [ $NASMODEL = "nas440" ]; then
-		wget -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/kirkwood-blackarmor-nas440.dtb
+		wget $WGETOPTS -nc $RAWREPO/kirkwood-blackarmor-nas440.dtb
 	fi
 fi
 
 if [ -f u-boot-env.txt ]; then
 	mkenvimage -p 0 -s 65536 -o u-boot-env.bin u-boot-env.txt
 else
-	wget -nc https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/u-boot-env.bin
+	wget $WGETOPTS -nc $RAWREPO/u-boot-env.bin
 fi
 
-wget -nc $DEBMIRROR/netboot/initrd.gz
-wget -nc $DEBMIRROR/netboot/vmlinuz-$KERNELVER-marvell
+wget $WGETOPTS -nc $DEBMIRROR/netboot/initrd.gz
+wget $WGETOPTS -nc $DEBMIRROR/netboot/vmlinuz-$KERNELVER-marvell
 if [ $NASMODEL = "nas220" ]; then
-	wget -nc $DEBMIRROR/device-tree/kirkwood-blackarmor-nas220.dtb
+	wget $WGETOPTS -nc $DEBMIRROR/device-tree/kirkwood-blackarmor-nas220.dtb
 fi
 
 echo
@@ -148,8 +153,18 @@ mkimage -A arm -O linux -T kernel -C none -a 0x40000 -e 0x40000 \
 
 echo
 
-mkimage -A arm -O linux -T ramdisk -C none \
-	-n "Debian $DEBDIST netboot initrd" -d initrd.gz uInitrd
+if [ -f preseed.cfg ]; then
+	gzip -d -c initrd.gz > initrd-preseed
+	echo preseed.cfg | cpio -H newc -o -A -F initrd-preseed
+	rm -f initrd-preseed.gz
+	gzip -9 initrd-preseed
+
+	mkimage -A arm -O linux -T ramdisk -C none \
+		-n "Debian $DEBDIST netboot initrd+p" -d initrd-preseed.gz uInitrd
+else
+	mkimage -A arm -O linux -T ramdisk -C none \
+		-n "Debian $DEBDIST netboot initrd" -d initrd.gz uInitrd
+fi
 
 echo
 
