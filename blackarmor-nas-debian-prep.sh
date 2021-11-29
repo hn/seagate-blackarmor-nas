@@ -39,7 +39,9 @@ while [ $# -gt 0 ]; do
 		;;
 	nas220)
 		NASMODEL=$1
-		DEBDIST=buster	# Debian 11 (bullseye) and higher not supported with only 128mb of RAM
+		# Installing Debian 11 (bullseye) and higher with 128MB RAM is a bit more complex,
+		# check the website for more information.
+		DEBDIST=buster
 		;;
 	nas440)
 		NASMODEL=$1

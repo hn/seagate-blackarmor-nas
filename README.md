@@ -36,13 +36,9 @@ All the NAS 4XX series products have the same 4-bay enclosure. The second digit 
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
 :warning: Warning: Support for the NAS 440 is currently alpha quality! Things are incomplete, buggy and unstable
-(hard disk slots 1 and 2 do **not** work - [see details](#NAS-440-patch-details)). Do not install to your NAS if you plan to use it for anything useful.
+(at least hard disk slots 1 and 2 do **not** work - [see details](#NAS-440-patch-details)). Do not install to your NAS if you plan to use it for anything useful.
 
 ## Install Debian GNU/Linux
-
-This script generally supports installing Debian 9 (Stretch), Debian 10 (Buster) and
-Debian 11 (Bullseye, default at time of writing). Debian 11 and higher is
-not possible on NAS 110 and 220 due to the available RAM of only 128MB.
 
 ### Warning
 
@@ -57,6 +53,12 @@ Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUS
 ![Blackarmor NAS440 serial port](https://github.com/hn/seagate-blackarmor-nas/blob/master/blackarmor-nas440-debian-serialport.jpg "NAS 440 serial port")
 
 ### Preparing kernel and initrd images
+
+This script generally supports installing Debian 9 (Stretch), Debian 10
+(Buster, default for NAS110 and NAS220) and Debian 11 (Bullseye, default for NAS440).
+
+Changing the default and installing Debian 11 (Bullseye) on the NAS110 and NAS220 is a bit more work
+due to the limited RAM of only 128MB, check [this note](#Special-note-for-NAS110-and-NAS220) first.
 
 Use your favourite Linux workstation to execute [`blackarmor-nas-debian-prep.sh`](https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/blackarmor-nas-debian-prep.sh) to download and prepare Das U-Boot bootloader and kernel image:
 
@@ -258,6 +260,16 @@ Uncompressing Linux... done, booting the kernel.
 ```
 
 Proceed with Debian installation as usual (configure RAID, select packages, ...). Ignore the `No installable kernel was found` and `No boot loader installed` warnings (`Continue without installing a kernel?`=`Yes` and `Continue`), but do not reboot yet!
+
+### Special note for NAS110 and NAS220
+
+It is possible to install Debian 11 on a NAS110 or NAS220, but during the installation
+process a `low memory` warning is displayed. It *seems* safe to ignore this warning.
+During the installation process you have to manually load the installer
+components `sata-modules-*-marvell-di`, `partman-ext3`, `partman-auto` and
+`parted-udeb` into the installer via the menu item `Download installer components`.
+
+When installing Debian 9 or 10 (default for NAS110 and NAS220), this warning does not occur.
 
 ### Finishing Debian installation
 
