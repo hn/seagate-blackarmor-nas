@@ -49,6 +49,7 @@ This completely removes the Seagate firmware and bootloader -- and there is no e
 
 Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUSB0 115200`) by connecting a 3.3V serial cable like this:
 
+![Blackarmor NAS110 serial port](https://github.com/hn/seagate-blackarmor-nas/blob/master/blackarmor-nas110-debian-serialport.jpg "NAS 110 serial port")
 ![Blackarmor NAS220 serial port](https://github.com/hn/seagate-blackarmor-nas/blob/master/blackarmor-nas220-debian-serialport.jpg "NAS 220 serial port")
 ![Blackarmor NAS440 serial port](https://github.com/hn/seagate-blackarmor-nas/blob/master/blackarmor-nas440-debian-serialport.jpg "NAS 440 serial port")
 
