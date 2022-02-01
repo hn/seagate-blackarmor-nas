@@ -70,8 +70,8 @@ if ! command -v mkimage &>/dev/null; then
 fi
 
 test -n "$NOVERBOSE" || VERBOSE="-v"
-KERNELVER=$(wget $WGETOPTS -qO- $DEBMIRROR/netboot/ | sed -n 's/.*vmlinuz-\([^\t ]*\)-marvell.*/\1/p')
 DEBMIRROR=https://deb.debian.org/debian/dists/$DEBDIST/main/installer-armel/current/images/kirkwood
+KERNELVER=$(wget $WGETOPTS -qO- $DEBMIRROR/netboot/ | sed -n 's/.*vmlinuz-\([^\t ]*\)-marvell.*/\1/p')
 
 echo "NAS model set to: $NASMODEL"
 echo "Using Debian dist '$DEBDIST' with Debian kernel version '$KERNELVER' for installation."
