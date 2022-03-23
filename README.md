@@ -32,7 +32,7 @@ stable.
 Quick specs: 1.2 Ghz CPU (Marvell 88F6281), 256MB RAM, 4 USB ports, 2 network interfaces, max 4 drives. Motherboard
 codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)', based on Marvell DB-88F6281A-BP development board.
 
-All the NAS 4XX series products have the same 4-bay enclosure. The second digit in this number scheme refers to the
+All the NAS 4XX series products have the same motherboard and 4-bay enclosure. The second digit in this number scheme refers to the
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
 :warning: Warning: Support for the NAS 440 is currently alpha quality! Things are incomplete, buggy and unstable
@@ -432,7 +432,7 @@ This project is based on the work of several dedicated people:
   in providing an initial [U-Boot](https://github.com/bantu/u-boot/compare/master...sg-ba-440) and
   [kernel patch](https://github.com/bantu/linux/compare/master...kw-ba-400-dts) for the NAS 440.
 
-- [Bodhi](https://mibodhi.blogspot.com/) has put enormous work into providing
+- [Tony Dinh](https://mibodhi.blogspot.com/) has put enormous work into providing
   [U-Boot](https://forum.doozan.com/read.php?3,12381) and [Linux kernel and rootfs](https://forum.doozan.com/read.php?2,12096)
   binaries for other kirkwood-based devices.
 
