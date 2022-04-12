@@ -35,8 +35,8 @@ codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)', based on Marvel
 All the NAS 4XX series products have the same motherboard and 4-bay enclosure. The second digit in this number scheme refers to the
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
-:warning: Warning: Support for the NAS 440 is currently alpha quality! Things are incomplete, buggy and unstable
-(at least hard disk slots 1 and 2 do **not** work - [see details](#NAS-440-patch-details)). Do not install to your NAS if you plan to use it for anything useful.
+:warning: Warning: Support for the NAS 4XX is currently experimental! Hard disk slots 1 and 2 do **not** work - 
+[see details](#NAS-440-patch-details)). Do not install to your NAS if you plan to use more than two drives (slots 3 and 4).
 
 ## Install Debian GNU/Linux
 
@@ -44,6 +44,16 @@ number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1
 
 This completely removes the Seagate firmware and bootloader -- and there is no easy way of going back. There is a risk of bricking your device
 ([but there may be a way to revive it](#Revive-a-bricked-device)). You have been warned.
+
+### Special note for NAS110 and NAS220
+
+It is possible to install Debian 11 on a NAS110 or NAS220, but during the installation
+process a `low memory` warning is displayed. It *seems* safe to ignore this warning.
+During the installation process you have to manually load the installer
+components `sata-modules-*-marvell-di`, `partman-ext3`, `partman-auto` and
+`parted-udeb` into the installer via the menu item `Download installer components`.
+
+When installing Debian 9 or 10 (default for NAS110 and NAS220), this warning does not occur.
 
 ### Prerequisites
 
@@ -200,7 +210,7 @@ Marvell>> reset
 
 Make sure to restart the NAS via `reset` command after flashing the bootloader!
 
-If your nas just restarts with the error message `cpu reset` after the `fatload usb 0:1 0x800000 u-boot-nas220.kwb` command try to format the usb stick to `ext2` and use `ext2load usb 0:1 ...` instead.
+If your nas just restarts with the error message `cpu reset` after the `fatload usb 0:1 0x800000 u-boot-nas220.kwb` command try to format the usb stick to `ext2` and use `ext2load ...` instead.
 
 ### Starting Debian installation
 
@@ -261,16 +271,6 @@ Uncompressing Linux... done, booting the kernel.
 ```
 
 Proceed with Debian installation as usual (configure RAID, select packages, ...). Ignore the `No installable kernel was found` and `No boot loader installed` warnings (`Continue without installing a kernel?`=`Yes` and `Continue`), but do not reboot yet!
-
-### Special note for NAS110 and NAS220
-
-It is possible to install Debian 11 on a NAS110 or NAS220, but during the installation
-process a `low memory` warning is displayed. It *seems* safe to ignore this warning.
-During the installation process you have to manually load the installer
-components `sata-modules-*-marvell-di`, `partman-ext3`, `partman-auto` and
-`parted-udeb` into the installer via the menu item `Download installer components`.
-
-When installing Debian 9 or 10 (default for NAS110 and NAS220), this warning does not occur.
 
 ### Finishing Debian installation
 
@@ -352,16 +352,16 @@ Exit the shell, remove USB stick and reboot the system via the Debian installer 
 
 - As Moritz [suggests](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian#tuning) it is advisable to install the `lm-sensors` and `hdparm` packages.
 
-- He also notes that you can adjust the fan speed by echo-ing the desired speed to sysfs: `echo 128 > /sys/class/i2c-dev/i2c-0/device/0-002e/pwm1`.
-  With `hwmon` one can [adjust the fan speed automatically](https://openwrt.org/toh/seagate/blackarmor_nas220#system_fan).
+- With [hwmon](https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface) you can adjust the fan
+  speed automatically. This script installs a corresponding template file in `/etc/sysfs.d`.
 
 ## Revive a bricked device
 
 The Marvell SoC waits in a very early boot phase on the serial port for a
 special "magic" sequence, and when this is received, it accepts to transfer the boot loader via
-Xmodem. `kwboot` can be used if your device is bricked or if you want to
-test an U-Boot image before actually flashing to NAND. Simply set up the
-serial port like this:
+[Xmodem](https://en.wikipedia.org/wiki/XMODEM). The `kwboot` tool can be used if your device
+is bricked or if you want to test an U-Boot image before actually flashing to NAND. Simply
+set up the serial port like this:
 
 ```
 $ kwboot -b u-boot-nas440.kwb -p -t /dev/ttyS8
@@ -395,16 +395,14 @@ in [Flashing Das U-Boot bootloader](#Flashing-Das-U-Boot-bootloader).
 
 ## NAS 440 patch details
 
-Support for the NAS 440 is work-in-progress. This script uses
-[patches](https://gist.github.com/bantu/d456865b91be6c99320b) by
-[Andreas Fischer](https://github.com/bantu) with further modifications
-([U-Boot](u-boot-2017.11-nas440.diff) and [kernel](linux-nas440.diff)) by
-me:
+This [patch fully implements support for the NAS440 board and peripherals](u-boot-2022.04-nas440.diff)
+within U-Boot. With the Linux kernel however there are problems, this is is work-in-progress:
 
 - :construction_worker: Hard disk drives 1 and 2 are connected to a 88SE6121 SATA-II
   controller, which is connected via PCIe. The controller basically works, unfortunately
-  the hard drives are _not_ beeing detected. Update: 2.5" (5V) hard drives work, 3.5" (12V)
-  hard drives do not work, [see this related bug report](https://forum.doozan.com/read.php?2,96444,98654).
+  the hard drives are _not_ beeing detected within the Linux kernel (`failed to IDENTIFY`).
+  Update: Some 2.5" (5V) hard drives work, 3.5" (12V) hard drives do not work,
+  [see this related bug report](https://forum.doozan.com/read.php?2,94079,95854#msg-95854).
 
 - Hard disk drives 3 and 4 are connected to the 88F6281 SoC (on chip peripherals, OCP)
   and working. HDD power for drives 3 and 4 can be controlled via GPIO pin 28.
@@ -415,7 +413,7 @@ me:
 - The LEDs are connected via an 8-bit serial-in/parallel-out 74AHC164 shift register.
   Support within U-Boot has been implemented (see `led_*` functions in `nas440.c`).
 
-- Various buttons (power, reset, LCD up/down) are connected via GPIO pins
+- Various buttons (power, reset, LCD pageup/down) are connected via GPIO pins
   (see `GPIO_*` definitions in `nas440.h`).
 
 ## Credits

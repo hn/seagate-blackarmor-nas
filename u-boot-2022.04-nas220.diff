@@ -1,0 +1,249 @@
+diff --git a/board/Seagate/nas220/MAINTAINERS b/board/Seagate/nas220/MAINTAINERS
+index f2df7ea64f..6033f93cf4 100644
+--- a/board/Seagate/nas220/MAINTAINERS
++++ b/board/Seagate/nas220/MAINTAINERS
+@@ -4,3 +4,4 @@ S:	Maintained
+ F:	board/Seagate/nas220/
+ F:	include/configs/nas220.h
+ F:	configs/nas220_defconfig
++F:	arch/arm/dts/kirkwood-blackarmor-nas220.dts
+diff --git a/board/Seagate/nas220/nas220.c b/board/Seagate/nas220/nas220.c
+index cd2bbdad1c..fdbf321ff9 100644
+--- a/board/Seagate/nas220/nas220.c
++++ b/board/Seagate/nas220/nas220.c
+@@ -10,17 +10,22 @@
+ 
+ #include <common.h>
+ #include <init.h>
+-#include <miiphy.h>
+-#include <net.h>
+-#include <asm/global_data.h>
+-#include <asm/mach-types.h>
++#include <netdev.h>
++#include <asm/arch/cpu.h>
+ #include <asm/arch/soc.h>
+ #include <asm/arch/mpp.h>
+-#include <asm/arch/cpu.h>
+-#include <asm/io.h>
++#include <asm/global_data.h>
++#include <asm/mach-types.h>
++#include <linux/bitops.h>
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
++/* blue power led, board power, sata0, sata1 */
++#define NAS220_GE_OE_LOW (~(BIT(12) | BIT(14) | BIT(24) | BIT(28)))
++#define NAS220_GE_OE_HIGH (~(0))
++#define NAS220_GE_OE_VAL_LOW (BIT(12) | BIT(14) | BIT(24) | BIT(28))
++#define NAS220_GE_OE_VAL_HIGH (0)
++
+ int board_early_init_f(void)
+ {
+ 	/*
+@@ -43,9 +48,9 @@ int board_early_init_f(void)
+ 		MPP9_TW_SCK,
+ 		MPP10_UART0_TXD,
+ 		MPP11_UART0_RXD,
+-		MPP12_GPO,
++		MPP12_GPO,		/* blue power led */
+ 		MPP13_GPIO,
+-		MPP14_GPIO,
++		MPP14_GPIO,		/* board power */
+ 		MPP15_SATA0_ACTn,
+ 		MPP16_SATA1_ACTn,
+ 		MPP17_SATA0_PRESENTn,
+@@ -55,12 +60,12 @@ int board_early_init_f(void)
+ 		MPP21_GPIO,
+ 		MPP22_GPIO,
+ 		MPP23_GPIO,
+-		MPP24_GPIO,
++		MPP24_GPIO,		/* sata0 power */
+ 		MPP25_GPIO,
+-		MPP26_GPIO,
++		MPP26_GPIO,		/* power button */
+ 		MPP27_GPIO,
+-		MPP28_GPIO,
+-		MPP29_GPIO,
++		MPP28_GPIO,		/* sata1 power */
++		MPP29_GPIO,		/* reset button */
+ 		MPP30_GPIO,
+ 		MPP31_GPIO,
+ 		MPP32_GPIO,
+@@ -73,6 +78,11 @@ int board_early_init_f(void)
+ 	return 0;
+ }
+ 
++int board_eth_init(struct bd_info *bis)
++{
++	return cpu_eth_init(bis);
++}
++
+ int board_init(void)
+ {
+ 	/*
+@@ -85,37 +95,3 @@ int board_init(void)
+ 
+ 	return 0;
+ }
+-
+-#ifdef CONFIG_RESET_PHY_R
+-/* Configure and enable MV88E1116 PHY */
+-void reset_phy(void)
+-{
+-	u16 reg;
+-	u16 devadr;
+-	char *name = "egiga0";
+-
+-	if (miiphy_set_current_dev(name))
+-		return;
+-
+-	/* command to read PHY dev address */
+-	if (miiphy_read(name, 0xEE, 0xEE, (u16 *)&devadr)) {
+-		printf("Err..%s could not read PHY dev address\n", __func__);
+-		return;
+-	}
+-
+-	/*
+-	 * Enable RGMII delay on Tx and Rx for CPU port
+-	 * Ref: sec 4.7.2 of chip datasheet
+-	 */
+-	miiphy_write(name, devadr, MV88E1116_PGADR_REG, 2);
+-	miiphy_read(name, devadr, MV88E1116_MAC_CTRL_REG, &reg);
+-	reg |= (MV88E1116_RGMII_RXTM_CTRL | MV88E1116_RGMII_TXTM_CTRL);
+-	miiphy_write(name, devadr, MV88E1116_MAC_CTRL_REG, reg);
+-	miiphy_write(name, devadr, MV88E1116_PGADR_REG, 0);
+-
+-	/* reset the phy */
+-	miiphy_reset(name, devadr);
+-
+-	printf("88E1116 Initialized on %s\n", name);
+-}
+-#endif /* CONFIG_RESET_PHY_R */
+diff --git a/configs/nas220_defconfig b/configs/nas220_defconfig
+index f6a1dcbee0..a078a7b751 100644
+--- a/configs/nas220_defconfig
++++ b/configs/nas220_defconfig
+@@ -3,12 +3,16 @@ CONFIG_SKIP_LOWLEVEL_INIT=y
+ CONFIG_SYS_DCACHE_OFF=y
+ CONFIG_ARCH_CPU_INIT=y
+ CONFIG_ARCH_KIRKWOOD=y
++CONFIG_SUPPORT_PASSING_ATAGS=y
++CONFIG_CMDLINE_TAG=y
++CONFIG_INITRD_TAG=y
+ CONFIG_SYS_KWD_CONFIG="board/Seagate/nas220/kwbimage.cfg"
+ CONFIG_SYS_TEXT_BASE=0x600000
+ CONFIG_NR_DRAM_BANKS=2
+ CONFIG_TARGET_NAS220=y
+ CONFIG_ENV_SIZE=0x10000
+ CONFIG_ENV_OFFSET=0xA0000
++CONFIG_DM_GPIO=y
+ CONFIG_DEFAULT_DEVICE_TREE="kirkwood-blackarmor-nas220"
+ CONFIG_IDENT_STRING="\nNAS 220"
+ # CONFIG_SYS_MALLOC_F is not set
+@@ -19,9 +23,11 @@ CONFIG_USE_PREBOOT=y
+ # CONFIG_DISPLAY_BOARDINFO is not set
+ CONFIG_HUSH_PARSER=y
+ CONFIG_SYS_PROMPT="nas220> "
++CONFIG_CMD_DM=y
+ # CONFIG_CMD_FLASH is not set
+-CONFIG_CMD_IDE=y
++CONFIG_CMD_GPIO=y
+ CONFIG_CMD_NAND=y
++CONFIG_CMD_SATA=y
+ CONFIG_CMD_USB=y
+ # CONFIG_CMD_SETEXPR is not set
+ CONFIG_CMD_DHCP=y
+@@ -32,6 +38,7 @@ CONFIG_CMD_EXT4=y
+ CONFIG_CMD_FAT=y
+ CONFIG_CMD_JFFS2=y
+ CONFIG_CMD_MTDPARTS=y
++CONFIG_MTDPARTS_DEFAULT="mtdparts=orion_nand:0xa0000@0x0(uboot),0x010000@0xa0000(env),0x500000@0xc0000(uimage),0x1a40000@0x5c0000(rootfs)"
+ CONFIG_CMD_UBI=y
+ CONFIG_ISO_PARTITION=y
+ CONFIG_EFI_PARTITION=y
+@@ -42,14 +49,15 @@ CONFIG_ENV_IS_IN_NAND=y
+ CONFIG_SYS_RELOC_GD_ENV_ADDR=y
+ CONFIG_NETCONSOLE=y
+ CONFIG_DM=y
+-CONFIG_SYS_ATA_STRIDE=4
+-CONFIG_SYS_ATA_DATA_OFFSET=0x100
+-CONFIG_SYS_ATA_REG_OFFSET=0x100
+-CONFIG_SYS_ATA_ALT_OFFSET=0x100
++CONFIG_SATA_MV=y
++CONFIG_SYS_SATA_MAX_DEVICE=2
++CONFIG_DM_GPIO_LOOKUP_LABEL=y
+ CONFIG_KIRKWOOD_GPIO=y
+ # CONFIG_MMC is not set
+ CONFIG_MTD=y
+ CONFIG_MTD_RAW_NAND=y
++CONFIG_PHY_MARVELL=y
++CONFIG_DM_ETH=y
+ CONFIG_MVGBE=y
+ CONFIG_MII=y
+ CONFIG_DM_RTC=y
+diff --git a/include/configs/nas220.h b/include/configs/nas220.h
+index 815f81f649..4c20245e5f 100644
+--- a/include/configs/nas220.h
++++ b/include/configs/nas220.h
+@@ -11,50 +11,37 @@
+ #ifndef _CONFIG_NAS220_H
+ #define _CONFIG_NAS220_H
+ 
+-/* power-on led, regulator, sata0, sata1 */
+-#define NAS220_GE_OE_VAL_LOW ((1 << 12)|(1 << 14)|(1 << 24)|(1 << 28))
+-#define NAS220_GE_OE_VAL_HIGH (0)
+-#define NAS220_GE_OE_LOW (~((1 << 12)|(1 << 14)|(1 << 24)|(1 << 28)))
+-#define NAS220_GE_OE_HIGH (~(0))
+-
+-/* PHY related */
+-#define MV88E1116_LED_FCTRL_REG		10
+-#define MV88E1116_CPRSP_CR3_REG		21
+-#define MV88E1116_MAC_CTRL_REG		21
+-#define MV88E1116_PGADR_REG		22
+-#define MV88E1116_RGMII_TXTM_CTRL	(1 << 4)
+-#define MV88E1116_RGMII_RXTM_CTRL	(1 << 5)
+-
+-#include "mv-common.h"
+-
+ /*
+- *  Environment variables configurations
++ * mv-common.h should be defined after CMD configs since it used them
++ * to enable certain macros
+  */
+ 
++#include "mv-common.h"
++
+ /*
+  * Default environment variables
+  */
+ 
+ #define CONFIG_EXTRA_ENV_SETTINGS \
+ 	"bootargs=console=ttyS0,115200\0" \
+-	"mtdparts=mtdparts=orion_nand:0xa0000@0x0(uboot),"\
+-	"0x010000@0xa0000(env),"\
+-	"0x500000@0xc0000(uimage),"\
+-	"0x1a40000@0x5c0000(rootfs)\0" \
+ 	"mtdids=nand0=orion_nand\0"\
++	"mtdparts=" CONFIG_MTDPARTS_DEFAULT \
+ 	"autostart=no\0"\
+ 	"autoload=no\0"
+ 
+ /*
+  * Ethernet Driver configuration
+  */
+-#ifdef CONFIG_CMD_NET
+ #define CONFIG_MVGBE_PORTS {1, 0}	/* enable port 0 only */
+ #define CONFIG_PHY_BASE_ADR 8
+-#endif /* CONFIG_CMD_NET */
++#ifdef CONFIG_RESET_PHY_R
++#undef CONFIG_RESET_PHY_R		/* remove legacy reset_phy() */
++#endif
+ 
+ /*
+- * EFI partition
++ * SATA driver configuration
+  */
++#define CONFIG_LBA48
++#define CONFIG_SYS_64BIT_LBA
+ 
+ #endif /* _CONFIG_NAS220_H */

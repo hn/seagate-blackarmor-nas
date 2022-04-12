@@ -4,7 +4,7 @@
 #
 # Install Debian GNU/Linux to a Seagate Blackarmor NAS 110 / 220 / 440
 #
-# (C) 2018-2021 Hajo Noerenberg
+# (C) 2018-2022 Hajo Noerenberg
 #
 #
 # http://www.noerenberg.de/
@@ -25,13 +25,16 @@
 #
 
 RAWREPO=https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master
-UBOOT=u-boot-2017.11
+UBOOT=u-boot-2022.04
 REBUILD=false
 
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--rebuild)
 		REBUILD=true
+		;;
+	--force)
+		FORCE=true
 		;;
 	nas110)
 		echo -e "\nUse the 'nas220' option, as the Blackarmor NAS 220 and 110 are reasonably compatible.\n"
@@ -46,10 +49,12 @@ while [ $# -gt 0 ]; do
 	nas440)
 		NASMODEL=$1
 		DEBDIST=bullseye
-		echo -ne "\nWARNING: Support for the NAS 440 is currently alpha quality! "
-		echo -ne "Things are incomplete, buggy and unstable. Do not install to your NAS if "
-		echo -e "you plan to use it for anything useful.\n"
-		exit 1
+		echo -ne "\nWARNING: Support for the NAS 440 is currently experimental! "
+		echo -ne "Hard disk slots 1 and 2 do NOT work with the current Linux kernel. "
+		echo -e "Use '--force' to override this warning.\n"
+		if [ -z "$FORCE" ]; then
+			exit 1
+		fi
 		;;
 	*)
 		echo "$0: unrecognized option: '$1'" >&2
@@ -89,48 +94,21 @@ if $REBUILD; then
 	export CROSS_COMPILE=arm-none-eabi-
 	export ARCH=arm
 
-	# Das U-Boot bootloader
 	wget $WGETOPTS -nc ftp://ftp.denx.de/pub/u-boot/$UBOOT.tar.bz2
-	tar xjf $UBOOT.tar.bz2
-	if [ $NASMODEL = "nas440" ]; then
-		wget $WGETOPTS -nc $RAWREPO/$UBOOT-$NASMODEL.diff
-		patch -p0 < $UBOOT-$NASMODEL.diff
-	fi
+	wget $WGETOPTS -nc $RAWREPO/$UBOOT-$NASMODEL.diff
+	test -d $UBOOT || tar xjf $UBOOT.tar.bz2
+
 	cd $UBOOT
+	grep CONFIG_CMD_SATA configs/${NASMODEL}_defconfig &>/dev/null || patch -N -p1 < ../$UBOOT-$NASMODEL.diff
 	make ${NASMODEL}_defconfig
 	make -j2
 	./tools/mkimage -n ./board/Seagate/$NASMODEL/kwbimage.cfg -T kwbimage -a 0x00600000 -e 0x00600000 -d u-boot.bin ../u-boot-$NASMODEL.kwb
+	cp -v u-boot.dtb ../kirkwood-blackarmor-$NASMODEL.dtb
 	cd ..
 
-	# Linux kernel DTB
-	if [ $NASMODEL = "nas440" ]; then
-		test -x /usr/bin/bison || apt-get install bison
-		test -x /usr/bin/flex || apt-get install flex
-		test -f /usr/include/openssl/bio.h || apt-get install libssl-dev
-
-		LATESTDKL=$(curl -sI https://sources.debian.org/api/src/linux/$DEBDIST/ | grep -i Location)
-		KV=$(echo "$LATESTDKL" | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
-		echo "Debian dist '$DEBDIST' with Debian kernel version '$KERNELVER' is based on vanilla kernel '$KV'."
-		KM=$(echo "$KV" | sed -n 's/^\([0-9]\+\)\..*/\1/p')
-		wget $WGETOPTS -nc https://cdn.kernel.org/pub/linux/kernel/v${KM}.x/linux-$KV.tar.xz
-		wget $WGETOPTS -nc $RAWREPO/linux-$NASMODEL.diff
-		# Extract minimal subset of kernel source, use full kernel source if you experience problems
-		tar xvJf linux-$KV.tar.xz linux-$KV/Makefile linux-$KV/arch/arm/ linux-$KV/scripts/ linux-$KV/include/ linux-$KV/tools/
-		tar xvJf linux-$KV.tar.xz --wildcards "linux-$KV/*Kconfig*"
-		cd linux-$KV
-		patch -p1 < ../linux-$NASMODEL.diff
-
-		make defconfig
-		make kirkwood-blackarmor-$NASMODEL.dtb
-
-		mv -v ./arch/arm/boot/dts/kirkwood-blackarmor-$NASMODEL.dtb ../
-		cd ..
-	fi
 else
 	wget $WGETOPTS -nc $RAWREPO/u-boot-$NASMODEL.kwb
-	if [ $NASMODEL = "nas440" ]; then
-		wget $WGETOPTS -nc $RAWREPO/kirkwood-blackarmor-nas440.dtb
-	fi
+	wget $WGETOPTS -nc $RAWREPO/kirkwood-blackarmor-$NASMODEL.dtb
 fi
 
 if [ -f u-boot-env.txt ]; then
@@ -141,9 +119,6 @@ fi
 
 wget $WGETOPTS -nc $DEBMIRROR/netboot/initrd.gz
 wget $WGETOPTS -nc $DEBMIRROR/netboot/vmlinuz-$KERNELVER-marvell
-if [ $NASMODEL = "nas220" ]; then
-	wget $WGETOPTS -nc $DEBMIRROR/device-tree/kirkwood-blackarmor-nas220.dtb
-fi
 
 echo
 

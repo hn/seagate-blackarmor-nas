@@ -1,0 +1,952 @@
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 644ba961a2..72e055e7e2 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -48,6 +48,7 @@ dtb-$(CONFIG_ARCH_KIRKWOOD) += \
+ 	kirkwood-atl-sbx81lifkw.dtb \
+ 	kirkwood-atl-sbx81lifxcat.dtb \
+ 	kirkwood-blackarmor-nas220.dtb \
++	kirkwood-blackarmor-nas440.dtb \
+ 	kirkwood-d2net.dtb \
+ 	kirkwood-dns325.dtb \
+ 	kirkwood-dockstar.dtb \
+diff --git a/arch/arm/dts/kirkwood-blackarmor-nas440.dts b/arch/arm/dts/kirkwood-blackarmor-nas440.dts
+new file mode 100644
+index 0000000000..8027bcb5e3
+--- /dev/null
++++ b/arch/arm/dts/kirkwood-blackarmor-nas440.dts
+@@ -0,0 +1,166 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Device Tree file for Seagate Blackarmor NAS440
++ *
++ * Copyright (C) 2021 Hajo Noerenberg <hajo-uboot@noerenberg.de>
++ * Copyright (C) 2015 Andreas Fischer <af@bantuX.org>
++ * Copyright (C) 2014 Evgeni Dobrev <evgeni@studio-punkt.com>
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
++
++/ {
++	model = "Seagate Blackarmor NAS440";
++	compatible = "seagate,blackarmor-nas440","marvell,kirkwood-88f6281",
++		     "marvell,kirkwood";
++
++	memory { /* 256 MB */
++		device_type = "memory";
++		reg = <0x00000000 0x10000000>;
++	};
++
++	chosen {
++		bootargs = "console=ttyS0,115200n8";
++		stdout-path = &uart0;
++	};
++
++	gpio_poweroff {
++		compatible = "gpio-poweroff";
++		gpios = <&gpio1 16 GPIO_ACTIVE_LOW>;		/* GPIO1-16 is MPP48 */
++	};
++
++	gpio_keys {
++		compatible = "gpio-keys";
++
++		reset {
++			label = "Reset";
++			linux,code = <KEY_POWER>;
++			gpios = <&gpio0 29 GPIO_ACTIVE_LOW>;
++		};
++
++		button {
++			label = "Power";
++			linux,code = <KEY_SLEEP>;
++			gpios = <&gpio1 17 GPIO_ACTIVE_LOW>;	/* GPIO1-17 is MPP49 */
++		};
++	};
++
++	regulators {
++		compatible = "simple-bus";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		pinctrl-0 = <&pmx_power_socsata>;
++		pinctrl-names = "default";
++
++		socsata_power: regulator@1 {
++			compatible = "regulator-fixed";
++			reg = <1>;
++			regulator-name = "SoC SATA Power";
++			regulator-min-microvolt = <12000000>;
++			regulator-max-microvolt = <12000000>;
++			enable-active-high;
++			regulator-always-on;
++			regulator-boot-on;
++			gpio = <&gpio0 28 GPIO_ACTIVE_HIGH>;
++		};
++	};
++};
++
++/*
++ * Serial port routed to connector CN4
++ *
++ * pin 1 - TX (CPU's TX)
++ * pin 4 - RX (CPU's RX)
++ * pin 6 - GND
++ */
++&uart0 {
++	status = "okay";
++};
++
++&pinctrl {
++	pinctrl-0 = <&pmx_button_reset &pmx_button_power>;
++	pinctrl-names = "default";
++
++	pmx_act_sata0: pmx-act-sata0 {
++		marvell,pins = "mpp15";
++		marvell,function = "sata0";
++	};
++
++	pmx_act_sata1: pmx-act-sata1 {
++		marvell,pins = "mpp16";
++		marvell,function = "sata1";
++	};
++
++	pmx_power_socsata: pmx-power-socsata {
++		marvell,pins = "mpp28";
++		marvell,function = "gpio";
++	};
++
++	pmx_button_reset: pmx-button-reset {
++		marvell,pins = "mpp29";
++		marvell,function = "gpio";
++	};
++
++	pmx_button_power: pmx-button-power {
++		marvell,pins = "mpp49";
++		marvell,function = "gpio";
++	};
++};
++
++&sata {
++	status = "okay";
++	nr-ports = <2>;
++};
++
++&pciec {
++	status = "okay";
++};
++
++&pcie0 {
++	status = "okay";
++};
++
++&i2c0 {
++	status = "okay";
++
++	adt7473: thermal@2e {
++		compatible = "adi,adt7473";
++		reg = <0x2e>;
++	};
++};
++
++&nand {
++	status = "okay";
++};
++
++&mdio {
++	status = "okay";
++
++	ethphy0: ethernet-phy@8 {
++		 reg = <8>;
++	};
++	ethphy1: ethernet-phy@9 {
++		 reg = <9>;
++	};
++};
++
++&eth0 {
++	status = "okay";
++
++	ethernet0-port@0 {
++		phy-handle = <&ethphy0>;
++	};
++};
++
++&eth1 {
++	status = "okay";
++
++	ethernet1-port@0 {
++		phy-handle = <&ethphy1>;
++	};
++};
+diff --git a/arch/arm/mach-kirkwood/Kconfig b/arch/arm/mach-kirkwood/Kconfig
+index 382b836267..a3ad565cc3 100644
+--- a/arch/arm/mach-kirkwood/Kconfig
++++ b/arch/arm/mach-kirkwood/Kconfig
+@@ -101,6 +101,11 @@ config TARGET_NAS220
+ 	select FEROCEON_88FR131
+ 	select KW88F6192
+ 
++config TARGET_NAS440
++	bool "BlackArmor NAS440"
++	select FEROCEON_88FR131
++	select KW88F6281
++
+ config TARGET_NSA310S
+ 	bool "Zyxel NSA310S"
+ 	select FEROCEON_88FR131
+@@ -138,6 +143,7 @@ source "board/raidsonic/ib62x0/Kconfig"
+ source "board/Seagate/dockstar/Kconfig"
+ source "board/Seagate/goflexhome/Kconfig"
+ source "board/Seagate/nas220/Kconfig"
++source "board/Seagate/nas440/Kconfig"
+ source "board/zyxel/nsa310s/Kconfig"
+ source "board/alliedtelesis/SBx81LIFKW/Kconfig"
+ source "board/alliedtelesis/SBx81LIFXCAT/Kconfig"
+diff --git a/board/Seagate/nas440/Kconfig b/board/Seagate/nas440/Kconfig
+new file mode 100644
+index 0000000000..3f93d75cd4
+--- /dev/null
++++ b/board/Seagate/nas440/Kconfig
+@@ -0,0 +1,12 @@
++if TARGET_NAS440
++
++config SYS_BOARD
++	default "nas440"
++
++config SYS_VENDOR
++	default "Seagate"
++
++config SYS_CONFIG_NAME
++	default "nas440"
++
++endif
+diff --git a/board/Seagate/nas440/MAINTAINERS b/board/Seagate/nas440/MAINTAINERS
+new file mode 100644
+index 0000000000..dcea1316c5
+--- /dev/null
++++ b/board/Seagate/nas440/MAINTAINERS
+@@ -0,0 +1,7 @@
++NAS440 BOARD
++M:	Hajo Noerenberg <hajo-uboot@noerenberg.de>
++S:	Maintained
++F:	board/Seagate/nas440/
++F:	include/configs/nas440.h
++F:	configs/nas440_defconfig
++F:	arch/arm/dts/kirkwood-blackarmor-nas440.dts
+diff --git a/board/Seagate/nas440/Makefile b/board/Seagate/nas440/Makefile
+new file mode 100644
+index 0000000000..2a3ef746d3
+--- /dev/null
++++ b/board/Seagate/nas440/Makefile
+@@ -0,0 +1,7 @@
++#
++# Copyright (C) 2014  Evgeni Dobrev <evgeni@studio-punkt.com>
++#
++# SPDX-License-Identifier:      GPL-2.0+
++#
++
++obj-y	:= nas440.o
+diff --git a/board/Seagate/nas440/kwbimage.cfg b/board/Seagate/nas440/kwbimage.cfg
+new file mode 100644
+index 0000000000..e71da11694
+--- /dev/null
++++ b/board/Seagate/nas440/kwbimage.cfg
+@@ -0,0 +1,156 @@
++#
++# Copyright (C) 2021  Hajo Noerenberg <hajo-uboot@noerenberg.de>
++#
++# Based on nas220/kwbimage.cfg originally written by
++# Evgeni Dobrev <evgeni@studio-punkt.com>
++#
++# Based on sheevaplug/kwbimage.cfg originally written by
++# Prafulla Wadaskar <prafulla@marvell.com>
++# (C) Copyright 2009
++# Marvell Semiconductor <www.marvell.com>
++#
++# SPDX-License-Identifier:      GPL-2.0+
++#
++# Refer doc/README.kwbimage for more details about how-to configure
++# and create kirkwood boot image
++#
++
++# Boot Media configurations
++BOOT_FROM	nand
++NAND_ECC_MODE	default
++NAND_PAGE_SIZE	0x0200
++
++# SOC registers configuration using bootrom header extension
++# Maximum KWBIMAGE_MAX_CONFIG configurations allowed
++
++# Configure RGMII-0 interface pad voltage to 1.8V
++DATA 0xFFD100E0 0x1B1B1B9B
++
++DATA 0xFFD20134 0xBBBBBBBB
++DATA 0xFFD20138 0x00BBBBBB
++
++#Dram initalization for SINGLE x16 CL=5 @ 400MHz
++DATA 0xFFD01400 0x43000C30	# DDR Configuration register
++# bit13-0:  0xa00 (2560 DDR2 clks refresh rate)
++# bit23-14: zero
++# bit24: 1= enable exit self refresh mode on DDR access
++# bit25: 1 required
++# bit29-26: zero
++# bit31-30: 01
++
++DATA 0xFFD01404 0x39543000	# DDR Controller Control Low
++# bit 4:    0=addr/cmd in smame cycle
++# bit 5:    0=clk is driven during self refresh, we don't care for APX
++# bit 6:    0=use recommended falling edge of clk for addr/cmd
++# bit14:    0=input buffer always powered up
++# bit18:    1=cpu lock transaction enabled
++# bit23-20: 5=recommended value for CL=5 and STARTBURST_DEL disabled bit31=0
++# bit27-24: 8= CL+3, STARTBURST sample stages, for freqs 400MHz, unbuffered DIMM
++# bit30-28: 3 required
++# bit31:    0=no additional STARTBURST delay
++
++DATA 0xFFD01408 0x22125451	# DDR Timing (Low) (active cycles value +1)
++# bit7-4:   TRCD
++# bit11- 8: TRP
++# bit15-12: TWR
++# bit19-16: TWTR
++# bit20:    TRAS msb
++# bit23-21: 0x0
++# bit27-24: TRRD
++# bit31-28: TRTP
++
++DATA 0xFFD0140C 0x00000833	#  DDR Timing (High)
++# bit6-0:   TRFC
++# bit8-7:   TR2R
++# bit10-9:  TR2W
++# bit12-11: TW2W
++# bit31-13: zero required
++
++DATA 0xFFD01410 0x0000000C	#  DDR Address Control
++# bit1-0:   00, Cs0width=x8
++# bit3-2:   11, Cs0size=1Gb
++# bit5-4:   00, Cs1width=nonexistent
++# bit7-6:   00, Cs1size =nonexistent
++# bit9-8:   00, Cs2width=nonexistent
++# bit11-10: 00, Cs2size =nonexistent
++# bit13-12: 00, Cs3width=nonexistent
++# bit15-14: 00, Cs3size =nonexistent
++# bit16:    0,  Cs0AddrSel
++# bit17:    0,  Cs1AddrSel
++# bit18:    0,  Cs2AddrSel
++# bit19:    0,  Cs3AddrSel
++# bit31-20: 0 required
++
++DATA 0xFFD01414 0x00000000	#  DDR Open Pages Control
++# bit0:    0,  OpenPage enabled
++# bit31-1: 0 required
++
++DATA 0xFFD01418 0x00000000	#  DDR Operation
++# bit3-0:   0x0, DDR cmd
++# bit31-4:  0 required
++
++DATA 0xFFD0141C 0x00000C52	#  DDR Mode
++# bit2-0:   2, BurstLen=2 required
++# bit3:     0, BurstType=0 required
++# bit6-4:   4, CL=5
++# bit7:     0, TestMode=0 normal
++# bit8:     0, DLL reset=0 normal
++# bit11-9:  6, auto-precharge write recovery ????????????
++# bit12:    0, PD must be zero
++# bit31-13: 0 required
++
++DATA 0xFFD01420 0x00000042	#  DDR Extended Mode
++# bit0:    0,  DDR DLL enabled
++# bit1:    0,  DDR drive strenght normal
++# bit2:    0,  DDR ODT control lsd (disabled)
++# bit5-3:  000, required
++# bit6:    1,  DDR ODT control msb, (disabled)
++# bit9-7:  000, required
++# bit10:   0,  differential DQS enabled
++# bit11:   0, required
++# bit12:   0, DDR output buffer enabled
++# bit31-13: 0 required
++
++DATA 0xFFD01424 0x0000F1FF	#  DDR Controller Control High
++# bit2-0:  111, required
++# bit3  :  1  , MBUS Burst Chop disabled
++# bit6-4:  111, required
++# bit7  :  0
++# bit8  :  0
++# bit9  :  0  , no half clock cycle addition to dataout
++# bit10 :  0  , 1/4 clock cycle skew enabled for addr/ctl signals
++# bit11 :  0  , 1/4 clock cycle skew disabled for write mesh
++# bit15-12: 1111 required
++# bit31-16: 0    required
++
++DATA 0xFFD01428 0x00085520
++DATA 0xFFD0147C 0x00008552
++
++DATA 0xFFD01504 0x0FFFFFF1	# CS[0]n Size
++# bit0:    1,  Window enabled
++# bit1:    0,  Write Protect disabled
++# bit3-2:  00, CS0 hit selected
++# bit23-4: ones, required
++# bit31-24: 0x07, Size (i.e. 128MB)
++
++DATA 0xFFD01508 0x00000000      # CS[1]n Base address to 0x0
++
++DATA 0xFFD0150C 0x00000000	# CS[1]n Size, window disabled
++
++DATA 0xFFD01514 0x00000000	# CS[2]n Size, window disabled
++DATA 0xFFD0151C 0x00000000	# CS[3]n Size, window disabled
++
++DATA 0xFFD01494 0x003C0000	#  DDR ODT Control (Low)
++DATA 0xFFD01498 0x00000000	#  DDR ODT Control (High)
++# bit1-0:  00, ODT0 controlled by ODT Control (low) register above
++# bit3-2:  01, ODT1 active NEVER!
++# bit31-4: zero, required
++
++DATA 0xFFD0149C 0x0000F80F	# CPU ODT Control
++
++DATA 0xFFD01480 0x00000001	# DDR Initialization Control
++#bit0=1, enable DDR init upon this register write
++
++# End of Header extension
++DATA 0x0 0x0
++
+diff --git a/board/Seagate/nas440/nas440.c b/board/Seagate/nas440/nas440.c
+new file mode 100644
+index 0000000000..f9cf56dcac
+--- /dev/null
++++ b/board/Seagate/nas440/nas440.c
+@@ -0,0 +1,380 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Copyright (C) 2022  Hajo Noerenberg <hajo-uboot@noerenberg.de>
++ *
++ * Based on nas220.c originally written by
++ * Evgeni Dobrev <evgeni@studio-punkt.com>
++ *
++ * Based on sheevaplug.c originally written by
++ * Prafulla Wadaskar <prafulla@marvell.com>
++ * (C) Copyright 2009
++ * Marvell Semiconductor <www.marvell.com>
++ *
++ */
++
++#include <common.h>
++#include <init.h>
++#include <netdev.h>
++#include <asm/arch/cpu.h>
++#include <asm/arch/soc.h>
++#include <asm/arch/mpp.h>
++#include <asm/global_data.h>
++#include <asm/mach-types.h>
++#include <linux/bitops.h>
++#include <bootstage.h>
++#include <linux/delay.h>
++#include <asm/arch/gpio.h>
++#include <version.h>
++
++DECLARE_GLOBAL_DATA_PTR;
++
++/*
++ * GPIO pin names, input/output direction and default values
++ *
++ * NAS440_GPIO_BUTTON_LCD_PAGEDOWN, NAS440_GPIO_BUTTON_LCD_PAGEUP
++ *  Buttons next to LC display, LOW if pressed
++ *
++ * NAS440_GPIO_BUTTON_POWER
++ *  Power button at front of case, LOW if pressed
++ *
++ * NAS440_GPIO_BUTTON_RESET
++ *  Reset button at back of case, LOW if pressed
++ *
++ * NAS440_GPIO_LCD_HD44780_*
++ *  HD44780-compatible LC display, control via 8bit parallel data transfer
++ *
++ * NAS440_GPIO_LED_74AHC164_*
++ *  Control front panel LEDs via 74AHC164 8bit shift register
++ *
++ * NAS440_GPIO_SOCSATA_POWER
++ *  12V Power for SoC SATA ports (NAS drives 3 and 4)
++ *
++ * NAS440_GPIO_BOARD_POWER
++ *  Shutdown board if LOW
++ *
++ */
++
++#define NAS440_GPIO_LCD_HD44780_BACKLIGHT	7
++#define NAS440_GPIO_LED_74AHC164_DATA		12
++#define NAS440_GPIO_LED_74AHC164_CLK		13
++#define NAS440_GPIO_SOCSATA_POWER		28
++#define NAS440_GPIO_BUTTON_RESET		29
++#define NAS440_GPIO_BUTTON_LCD_PAGEDOWN		34
++#define NAS440_GPIO_LCD_HD44780_RS		35
++#define NAS440_GPIO_LCD_HD44780_D0		36
++#define NAS440_GPIO_LCD_HD44780_D1		37
++#define NAS440_GPIO_LCD_HD44780_D2		38
++#define NAS440_GPIO_LCD_HD44780_D3		39
++#define NAS440_GPIO_LCD_HD44780_D4		40
++#define NAS440_GPIO_LCD_HD44780_D5		41
++#define NAS440_GPIO_LCD_HD44780_D6		42
++#define NAS440_GPIO_LCD_HD44780_D7		43
++#define NAS440_GPIO_LCD_HD44780_RW		44
++#define NAS440_GPIO_LCD_HD44780_E		45
++#define NAS440_GPIO_BUTTON_LCD_PAGEUP		47
++#define NAS440_GPIO_BOARD_POWER			48
++#define NAS440_GPIO_BUTTON_POWER		49
++
++/*
++ * GPIO output enable, pins 0-31 to LOW, pins 31-49 to HIGH config register
++ */
++#define NAS440_GE_OE_LOW	(~(BIT(NAS440_GPIO_LCD_HD44780_BACKLIGHT)	\
++				| BIT(NAS440_GPIO_LED_74AHC164_DATA)		\
++				| BIT(NAS440_GPIO_LED_74AHC164_CLK)		\
++				| BIT(NAS440_GPIO_SOCSATA_POWER)))
++#define NAS440_GE_OE_HIGH	(~(BIT_MASK(NAS440_GPIO_BOARD_POWER)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_RS)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_D0)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_D1)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_D2)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_D3)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_D4)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_D5)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_D6)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_D7)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_RW)		\
++				| BIT_MASK(NAS440_GPIO_LCD_HD44780_E)))
++
++/*
++ * GPIO output default values
++ */
++#define NAS440_GE_OE_VAL_LOW	BIT(NAS440_GPIO_LCD_HD44780_BACKLIGHT)
++
++#define NAS440_GE_OE_VAL_HIGH	BIT_MASK(NAS440_GPIO_BOARD_POWER)
++
++int board_early_init_f(void)
++{
++	/*
++	 * default gpio configuration
++	 */
++	mvebu_config_gpio(NAS440_GE_OE_VAL_LOW, NAS440_GE_OE_VAL_HIGH,
++			  NAS440_GE_OE_LOW, NAS440_GE_OE_HIGH);
++
++	/* Multi-Purpose Pins Functionality configuration */
++	static const u32 kwmpp_config[] = {
++		MPP0_NF_IO2,
++		MPP1_NF_IO3,
++		MPP2_NF_IO4,
++		MPP3_NF_IO5,
++		MPP4_NF_IO6,
++		MPP5_NF_IO7,
++		MPP6_SYSRST_OUTn,
++		MPP7_GPO,		/* NAS440_GPIO_LCD_HD44780_BACKLIGHT */
++		MPP8_TW_SDA,
++		MPP9_TW_SCK,
++		MPP10_UART0_TXD,
++		MPP11_UART0_RXD,
++		MPP12_GPO,		/* NAS440_GPIO_LED_74AHC164_DATA */
++		MPP13_GPIO,		/* NAS440_GPIO_LED_74AHC164_CLK */
++		MPP14_SATA1_PRESENTn,
++		MPP15_SATA0_ACTn,
++		MPP16_SATA1_ACTn,
++		MPP17_SATA0_PRESENTn,
++		MPP18_NF_IO0,
++		MPP19_NF_IO1,
++		MPP20_GE1_0,		/* GbE Port1, RGMII mode (12 pins GE1_0-7, GE1_10-13) */
++		MPP21_GE1_1,
++		MPP22_GE1_2,
++		MPP23_GE1_3,
++		MPP24_GE1_4,
++		MPP25_GE1_5,
++		MPP26_GE1_6,
++		MPP27_GE1_7,
++		MPP28_GPIO,		/* NAS440_GPIO_SOCSATA_POWER */
++		MPP29_GPIO,		/* NAS440_GPIO_BUTTON_RESET */
++		MPP30_GE1_10,
++		MPP31_GE1_11,
++		MPP32_GE1_12,
++		MPP33_GE1_13,
++		MPP34_GPIO,		/* NAS440_GPIO_BUTTON_LCD_PAGEDOWN */
++		MPP35_GPIO,		/* NAS440_GPIO_LCD_HD44780_RS */
++		MPP36_GPIO,		/* NAS440_GPIO_LCD_HD44780_D0 */
++		MPP37_GPIO,		/* NAS440_GPIO_LCD_HD44780_D1 */
++		MPP38_GPIO,		/* NAS440_GPIO_LCD_HD44780_D2 */
++		MPP39_GPIO,		/* NAS440_GPIO_LCD_HD44780_D3 */
++		MPP40_GPIO,		/* NAS440_GPIO_LCD_HD44780_D4 */
++		MPP41_GPIO,		/* NAS440_GPIO_LCD_HD44780_D5 */
++		MPP42_GPIO,		/* NAS440_GPIO_LCD_HD44780_D6 */
++		MPP43_GPIO,		/* NAS440_GPIO_LCD_HD44780_D7 */
++		MPP44_GPIO,		/* NAS440_GPIO_LCD_HD44780_RW */
++		MPP45_GPIO,		/* NAS440_GPIO_LCD_HD44780_E  */
++		MPP46_GPIO,
++		MPP47_GPIO,		/* NAS440_GPIO_BUTTON_LCD_PAGEUP */
++		MPP48_GPIO,		/* NAS440_GPIO_BOARD_POWER */
++		MPP49_GPIO,		/* NAS440_GPIO_BUTTON_POWER */
++		0
++	};
++	kirkwood_mpp_conf(kwmpp_config, NULL);
++	return 0;
++}
++
++/* HD44780 pins, data bits first, backlight last */
++static int hd44780_pins[12] = {
++	NAS440_GPIO_LCD_HD44780_D0,
++	NAS440_GPIO_LCD_HD44780_D1,
++	NAS440_GPIO_LCD_HD44780_D2,
++	NAS440_GPIO_LCD_HD44780_D3,
++	NAS440_GPIO_LCD_HD44780_D4,
++	NAS440_GPIO_LCD_HD44780_D5,
++	NAS440_GPIO_LCD_HD44780_D6,
++	NAS440_GPIO_LCD_HD44780_D7,
++	NAS440_GPIO_LCD_HD44780_E,
++	NAS440_GPIO_LCD_HD44780_RW,
++	NAS440_GPIO_LCD_HD44780_RS,
++	NAS440_GPIO_LCD_HD44780_BACKLIGHT
++};
++
++#define HD44780_NUM_COL			16
++#define HD44780_BUF_COL			40
++#define HD44780_NUM_ROW			2
++
++#define HD44780_PIN_NUM			(sizeof(hd44780_pins) / sizeof(int))
++
++/*
++ * HD44780 LCD display commands - adapted from hd44780.h by Joerg Wunsch
++ *
++ * ----------------------------------------------------------------------------
++ * "THE BEER-WARE LICENSE" (Revision 42):
++ * <joerg@FreeBSD.ORG> wrote this file.  As long as you retain this notice you
++ * can do whatever you want with this stuff. If we meet some day, and you think
++ * this stuff is worth it, you can buy me a beer in return.        Joerg Wunsch
++ * ----------------------------------------------------------------------------
++ */
++
++#define HD44780_CMD_CLR \
++	0x01
++#define HD44780_CMD_HOME \
++	0x02
++#define HD44780_CMD_ENTMODE(inc, shift) \
++	(0x04 | ((inc) ? 0x02 : 0) | ((shift) ? 1 : 0))
++#define HD44780_CMD_DISPCTL(disp, cursor, blink) \
++	(0x08 | ((disp) ? 0x04 : 0) | ((cursor) ? 0x02 : 0) | ((blink) ? 1 : 0))
++#define HD44780_CMD_SHIFT(shift, right) \
++	(0x10 | ((shift) ? 0x08 : 0) | ((right) ? 0x04 : 0))
++#define HD44780_CMD_FNSET(if8bit, twoline, font5x10) \
++	(0x20 | ((if8bit) ? 0x10 : 0) | ((twoline) ? 0x08 : 0) | \
++		((font5x10) ? 0x04 : 0))
++#define HD44780_CMD_CGADDR(addr) \
++	(0x40 | ((addr) & 0x3f))
++#define HD44780_CMD_DDADDR(addr) \
++	(0x80 | ((addr) & 0x7f))
++
++static void lcd_send(unsigned int val, int mode)
++{
++	udelay(1);
++	kw_gpio_set_value(NAS440_GPIO_LCD_HD44780_RS, mode);
++	udelay(1);
++
++	kw_gpio_set_value(NAS440_GPIO_LCD_HD44780_E, 0);
++	for (int i = 0; i < 8; i++)
++		kw_gpio_set_value(hd44780_pins[i], (val & (1 << i)) >> i);
++
++	udelay(1);
++	kw_gpio_set_value(NAS440_GPIO_LCD_HD44780_E, 1);
++	udelay(1);
++	kw_gpio_set_value(NAS440_GPIO_LCD_HD44780_E, 0);
++	udelay(50);
++}
++
++void lcd_init(void)
++{
++	for (int i = 0; i < HD44780_PIN_NUM; i++) {
++		kw_gpio_set_valid(hd44780_pins[i], GPIO_OUTPUT_OK);
++		kw_gpio_direction_output(hd44780_pins[i], i == (HD44780_PIN_NUM - 1));
++	}
++
++	lcd_send(HD44780_CMD_FNSET(1, 1, 0), 0);
++	udelay(50);
++	lcd_send(HD44780_CMD_FNSET(1, 1, 0), 0);
++	udelay(50);
++	lcd_send(HD44780_CMD_FNSET(1, 1, 0), 0);
++	udelay(50);
++	lcd_send(HD44780_CMD_DISPCTL(1, 0, 0), 0);
++	udelay(50);
++	lcd_send(HD44780_CMD_CLR, 0);
++	udelay(50);
++	lcd_send(HD44780_CMD_ENTMODE(1, 0), 0);
++
++	udelay(2000);
++}
++
++void lcd_row(int row, char *buf)
++{
++	int p = 0;
++
++	if (row >= HD44780_NUM_ROW)
++		return;
++
++	lcd_send(HD44780_CMD_DDADDR(HD44780_BUF_COL * row + 0), 0);
++	for (int i = 0; i < HD44780_NUM_COL; i++) {
++		if (buf[i] == 0)
++			p++;
++
++		lcd_send(p ? 32 : buf[i], 1);
++	}
++}
++
++enum led_disk {
++	LED_DSK_OFF,
++	LED_DSK_RED
++	/* LED_DSK_GREEN disk activity led is controlled directly by the hardware */
++};
++
++enum led_system {
++	LED_SYS_OFF,
++	LED_SYS_BLUE,
++	LED_SYS_RED
++};
++
++void led_init(void)
++{
++	kw_gpio_set_valid(NAS440_GPIO_LED_74AHC164_DATA, GPIO_OUTPUT_OK);
++	kw_gpio_direction_output(NAS440_GPIO_LED_74AHC164_DATA, 0);
++	kw_gpio_set_valid(NAS440_GPIO_LED_74AHC164_CLK, GPIO_OUTPUT_OK);
++	kw_gpio_direction_output(NAS440_GPIO_LED_74AHC164_CLK, 0);
++}
++
++void led_set(enum led_disk disk1, enum led_disk disk2, enum led_disk disk3,
++	     enum led_disk disk4, enum led_system front1)
++{
++	int ledbits = (0x81
++		| ((front1 == LED_SYS_RED) ? 0x08 : 0)
++		| ((front1 == LED_SYS_BLUE) ? 0x04 : 0)
++		| ((disk1 == LED_DSK_RED) ? 0 : 0x02)
++		| ((disk2 == LED_DSK_RED) ? 0 : 0x40)
++		| ((disk3 == LED_DSK_RED) ? 0 : 0x20)
++		| ((disk4 == LED_DSK_RED) ? 0 : 0x10));
++
++	for (int i = 0; i < 8; i++) {
++		kw_gpio_set_value(NAS440_GPIO_LED_74AHC164_DATA, (ledbits >> i) & 1);
++		udelay(1);
++		kw_gpio_set_value(NAS440_GPIO_LED_74AHC164_CLK, 1);
++		kw_gpio_set_value(NAS440_GPIO_LED_74AHC164_CLK, 0);
++	}
++}
++
++/* factory firmware delays hard disk spinup, presumably to avoid power peaks */
++void delay_hdd_spinup(void)
++{
++	lcd_row(1, "Delay HDD spinup");
++
++	for (int i = 0; i < 2500; i++)
++		udelay(1000);
++
++	kw_gpio_set_valid(NAS440_GPIO_SOCSATA_POWER, GPIO_OUTPUT_OK);
++	kw_gpio_direction_output(NAS440_GPIO_SOCSATA_POWER, 1);
++}
++
++#if CONFIG_IS_ENABLED(SHOW_BOOT_PROGRESS)
++void show_boot_progress(int val)
++{
++	switch (val) {
++/*		            0123456789abcdef */
++	case BOOTSTAGE_ID_BOARD_INIT_DONE:
++		lcd_row(1, "Board init done");
++		break;
++	case BOOTSTAGE_ID_USB_START:
++		lcd_row(1, "Init USB");
++		break;
++	case BOOTSTAGE_ID_ETH_START:
++		lcd_row(1, "Init ethernet");
++		break;
++	case BOOTSTAGE_ID_MAIN_LOOP:
++		lcd_row(1, "Wait for input");
++		break;
++	case BOOTSTAGE_ID_RUN_OS:
++		lcd_row(1, "Starting Linux");
++		break;
++	default:
++		if (val < 0)	/* error */
++			lcd_row(1, "Error");
++		break;
++	}
++}
++#endif
++
++int board_eth_init(struct bd_info *bis)
++{
++	return cpu_eth_init(bis);
++}
++
++int board_init(void)
++{
++	/*
++	 * arch number of board
++	 */
++	gd->bd->bi_arch_number = MACH_TYPE_DB88F6281_BP;
++
++	/* address of boot parameters */
++	gd->bd->bi_boot_params = mvebu_sdram_bar(0) + 0x100;
++
++	led_init();
++	led_set(LED_DSK_OFF, LED_DSK_OFF, LED_DSK_OFF, LED_DSK_OFF, LED_SYS_BLUE);
++
++	lcd_init();
++	lcd_row(0, U_BOOT_VERSION "");
++
++	delay_hdd_spinup();
++
++	return 0;
++}
+diff --git a/configs/nas440_defconfig b/configs/nas440_defconfig
+new file mode 100644
+index 0000000000..bceb5f525d
+--- /dev/null
++++ b/configs/nas440_defconfig
+@@ -0,0 +1,77 @@
++CONFIG_ARM=y
++CONFIG_SKIP_LOWLEVEL_INIT=y
++CONFIG_SYS_DCACHE_OFF=y
++CONFIG_ARCH_CPU_INIT=y
++CONFIG_ARCH_KIRKWOOD=y
++CONFIG_SUPPORT_PASSING_ATAGS=y
++CONFIG_CMDLINE_TAG=y
++CONFIG_INITRD_TAG=y
++CONFIG_SYS_KWD_CONFIG="board/Seagate/nas440/kwbimage.cfg"
++CONFIG_SYS_TEXT_BASE=0x600000
++CONFIG_NR_DRAM_BANKS=2
++CONFIG_TARGET_NAS440=y
++CONFIG_ENV_SIZE=0x10000
++CONFIG_ENV_OFFSET=0xA0000
++CONFIG_DM_GPIO=y
++CONFIG_DEFAULT_DEVICE_TREE="kirkwood-blackarmor-nas440"
++CONFIG_IDENT_STRING="\nNAS 440"
++# CONFIG_SYS_MALLOC_F is not set
++CONFIG_SYS_LOAD_ADDR=0x800000
++CONFIG_SHOW_BOOT_PROGRESS=y
++CONFIG_BOOTDELAY=3
++CONFIG_USE_PREBOOT=y
++CONFIG_PREBOOT="pci enum; "
++# CONFIG_DISPLAY_BOARDINFO is not set
++CONFIG_HUSH_PARSER=y
++CONFIG_SYS_PROMPT="nas440> "
++CONFIG_CMD_DM=y
++# CONFIG_CMD_FLASH is not set
++CONFIG_CMD_GPIO=y
++CONFIG_CMD_NAND=y
++CONFIG_CMD_PCI=y
++CONFIG_CMD_SATA=y
++CONFIG_CMD_USB=y
++# CONFIG_CMD_SETEXPR is not set
++CONFIG_CMD_DHCP=y
++CONFIG_CMD_MII=y
++CONFIG_CMD_PING=y
++CONFIG_CMD_EXT2=y
++CONFIG_CMD_EXT4=y
++CONFIG_CMD_FAT=y
++CONFIG_CMD_JFFS2=y
++CONFIG_CMD_MTDPARTS=y
++CONFIG_MTDPARTS_DEFAULT="mtdparts=orion_nand:0xa0000@0x0(uboot),0x010000@0xa0000(env),0x500000@0xc0000(uimage),0x1a40000@0x5c0000(rootfs)"
++CONFIG_CMD_UBI=y
++CONFIG_ISO_PARTITION=y
++CONFIG_EFI_PARTITION=y
++# CONFIG_PARTITION_UUIDS is not set
++CONFIG_OF_CONTROL=y
++CONFIG_ENV_OVERWRITE=y
++CONFIG_ENV_IS_IN_NAND=y
++CONFIG_SYS_RELOC_GD_ENV_ADDR=y
++CONFIG_NETCONSOLE=y
++CONFIG_DM=y
++CONFIG_SCSI_AHCI=y
++CONFIG_AHCI_PCI=y
++CONFIG_SATA_MV=y
++CONFIG_SYS_SATA_MAX_DEVICE=2
++CONFIG_DM_GPIO_LOOKUP_LABEL=y
++CONFIG_KIRKWOOD_GPIO=y
++# CONFIG_MMC is not set
++CONFIG_MTD=y
++CONFIG_MTD_RAW_NAND=y
++CONFIG_PHY_MARVELL=y
++CONFIG_DM_ETH=y
++CONFIG_MVGBE=y
++CONFIG_MII=y
++CONFIG_PCI=y
++CONFIG_DM_PCI_COMPAT=y
++CONFIG_PCI_MVEBU=y
++CONFIG_DM_RTC=y
++CONFIG_RTC_MV=y
++CONFIG_SCSI=y
++CONFIG_DM_SCSI=y
++CONFIG_SYS_NS16550=y
++CONFIG_USB=y
++CONFIG_USB_EHCI_HCD=y
++CONFIG_USB_STORAGE=y
+diff --git a/drivers/ata/ahci-pci.c b/drivers/ata/ahci-pci.c
+index b1d231e0f9..797e0d570e 100644
+--- a/drivers/ata/ahci-pci.c
++++ b/drivers/ata/ahci-pci.c
+@@ -38,6 +38,8 @@ U_BOOT_DRIVER(ahci_pci) = {
+ static struct pci_device_id ahci_pci_supported[] = {
+ 	{ PCI_DEVICE_CLASS(PCI_CLASS_STORAGE_SATA_AHCI, ~0) },
+ 	{ PCI_DEVICE(0x1b21, 0x0611) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x6121) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x6145) },
+ 	{},
+ };
+ 
+diff --git a/include/configs/nas440.h b/include/configs/nas440.h
+new file mode 100644
+index 0000000000..58e6afb2c3
+--- /dev/null
++++ b/include/configs/nas440.h
+@@ -0,0 +1,50 @@
++/*
++ * Copyright (C) 2022 Hajo Noerenberg <hajo-uboot@noerenberg.de>
++ *
++ * based on work from:
++ * (C) Copyright 2009
++ * Marvell Semiconductor <www.marvell.com>
++ * Written-by: Prafulla Wadaskar <prafulla@marvell.com>
++ *
++ * SPDX-License-Identifier:	GPL-2.0+
++ */
++
++#ifndef _CONFIG_NAS440_H
++#define _CONFIG_NAS440_H
++
++/*
++ * mv-common.h should be defined after CMD configs since it used them
++ * to enable certain macros
++ */
++
++#include "mv-common.h"
++
++/*
++ * Default environment variables
++ */
++
++#define CONFIG_EXTRA_ENV_SETTINGS \
++	"bootargs=console=ttyS0,115200\0" \
++	"mtdids=nand0=orion_nand\0"\
++	"mtdparts=" CONFIG_MTDPARTS_DEFAULT \
++	"autostart=no\0"\
++	"autoload=no\0"
++
++/*
++ * Ethernet Driver configuration
++ */
++#ifdef CONFIG_MVGBE
++#define CONFIG_MVGBE_PORTS {1, 1}	/* enable both ports */
++#define CONFIG_PHY_BASE_ADR 8
++#ifdef CONFIG_RESET_PHY_R
++#undef CONFIG_RESET_PHY_R		/* remove legacy reset_phy() */
++#endif
++#endif /* CONFIG_MVGBE */
++
++/*
++ * SATA driver configuration
++ */
++#define CONFIG_LBA48
++#define CONFIG_SYS_64BIT_LBA
++
++#endif /* _CONFIG_NAS440_H */

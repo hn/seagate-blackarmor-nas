@@ -4,7 +4,7 @@
 #
 # Install Debian GNU/Linux to a Seagate Blackarmor NAS 110 / 220 / 440
 #
-# (C) 2018-2021 Hajo Noerenberg
+# (C) 2018-2022 Hajo Noerenberg
 #
 #
 # http://www.noerenberg.de/
@@ -24,12 +24,22 @@
 # with this program. If not, see <http://www.gnu.org/licenses/gpl-3.0.txt>.
 #
 
+RAWREPO=https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master
+
 MACHINE=$(tr -d '\0' </proc/device-tree/model)
 
-if [ "${MACHINE:0:22}" != "Seagate Blackarmor NAS" ]; then
-	echo "This script has to be executed on the Seagate Blackarmor NAS only"
-	exit 1
-fi
+case "$MACHINE" in
+	Seagate\ Blackarmor\ NAS220)
+		NASMODEL=nas220
+		;;
+	Seagate\ Blackarmor\ NAS440)
+		NASMODEL=nas440
+		;;
+	*)
+		echo "This script may only be run on the Seagate Blackarmor NAS"
+		exit 1
+		;;
+esac
 
 apt-get --yes install flash-kernel u-boot-tools sharutils
 
@@ -85,8 +95,8 @@ c2VjdG9ycwovZGV2L210ZDEJCTB4MAkJMHgxMDAwMAoK
 ====
 EOF
 
-if [ "$MACHINE" = "Seagate Blackarmor NAS440" ]; then
-	wget -nc -P /etc/flash-kernel/dtbs https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/kirkwood-blackarmor-nas440.dtb
+if [ $NASMODEL = "nas440" ]; then
+	wget $WGETOPTS -nc -P /etc/flash-kernel/dtbs $RAWREPO/kirkwood-blackarmor-$NASMODEL.dtb
 fi
 
 apt-get --yes install linux-image-marvell
@@ -98,3 +108,12 @@ else
 	grep -q 862013 /etc/fstab || echo -e "# Set /run size, see Debian Bug #862013\ntmpfs\t/run\ttmpfs\tnosuid,noexec,size=20M\t0\t0" >> /etc/fstab
 fi
 
+apt-get install sysfsutils
+wget $WGETOPTS -nc -P /etc/sysfs.d $RAWREPO/blackarmor-$NASMODEL-fan.conf
+if [ -f ls /sys/class/hwmon/hwmon0/device/pwm1_enable ]; then
+	# kernel 4.x "hwmon0/device/..."
+	perl -i -p -e 's%hwmon0(/device)?%hwmon0/device%' /etc/sysfs.d/blackarmor-$NASMODEL-fan.conf
+else
+	# kernel 5.x "hwmon0/..."
+	perl -i -p -e 's%hwmon0/device%hwmon0%' /etc/sysfs.d/blackarmor-$NASMODEL-fan.conf
+fi
