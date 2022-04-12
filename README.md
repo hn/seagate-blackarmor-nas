@@ -35,8 +35,9 @@ codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)', based on Marvel
 All the NAS 4XX series products have the same motherboard and 4-bay enclosure. The second digit in this number scheme refers to the
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
-:warning: Warning: Support for the NAS 4XX is currently experimental! Hard disk slots 1 and 2 do **not** work - 
-[see details](#NAS-440-patch-details)). Do not install to your NAS if you plan to use more than two drives (slots 3 and 4).
+:warning: Warning: Support for the NAS 4XX is currently experimental! Hard disk slots 1 and 2 do **not**
+work - [see details](#NAS-440-patch-details). Do not install to your NAS if you plan to use more than
+two drives (slots 3 and 4 work fine).
 
 ## Install Debian GNU/Linux
 
@@ -353,7 +354,7 @@ Exit the shell, remove USB stick and reboot the system via the Debian installer 
 - As Moritz [suggests](http://wiki.ccc-ffm.de/projekte:diverses:seagate_blackarmor_nas_220_debian#tuning) it is advisable to install the `lm-sensors` and `hdparm` packages.
 
 - With [hwmon](https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface) you can adjust the fan
-  speed automatically. This script installs a corresponding template file in `/etc/sysfs.d`.
+  speed automatically. This script installs a [corresponding template file](blackarmor-nas220-fan.conf) in `/etc/sysfs.d`.
 
 ## Revive a bricked device
 
@@ -400,12 +401,12 @@ within U-Boot. With the Linux kernel however there are problems, this is is work
 
 - :construction_worker: Hard disk drives 1 and 2 are connected to a 88SE6121 SATA-II
   controller, which is connected via PCIe. The controller basically works, unfortunately
-  the hard drives are _not_ beeing detected within the Linux kernel (`failed to IDENTIFY`).
+  the hard drives are _not_ beeing detected within the Linux kernel (`ahci` module error `failed to IDENTIFY`).
   Update: Some 2.5" (5V) hard drives work, 3.5" (12V) hard drives do not work,
   [see this related bug report](https://forum.doozan.com/read.php?2,94079,95854#msg-95854).
 
 - Hard disk drives 3 and 4 are connected to the 88F6281 SoC (on chip peripherals, OCP)
-  and working. HDD power for drives 3 and 4 can be controlled via GPIO pin 28.
+  and working. HDD power (12V) for drives 3 and 4 can be controlled via GPIO pin 28.
 
 - The LCD has a HD44780 compatible controller communicating via 12 GPIO pins (8 bit data
   width). Support within U-Boot has been implemented (see `lcd_*` functions in `nas440.c`).
