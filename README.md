@@ -36,7 +36,7 @@ All the NAS 4XX series products have the same motherboard and 4-bay enclosure. T
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
 :warning: Warning: Support for the NAS 4XX is currently experimental! Hard disk slots 1 and 2 do **not**
-work - [see details](#NAS-440-patch-details). Do not install to your NAS if you plan to use more than
+work - [see details](#NAS-440-patch-details). Do not install to your NAS 4XX if you plan to use more than
 two drives (slots 3 and 4 work fine).
 
 ## Install Debian GNU/Linux
@@ -44,7 +44,7 @@ two drives (slots 3 and 4 work fine).
 ### Warning
 
 This completely removes the Seagate firmware and bootloader -- and there is no easy way of going back. There is a risk of bricking your device
-([but there may be a way to revive it](#Revive-a-bricked-device)). You have been warned.
+([but there is usually a viable way to revive it](#Revive-a-bricked-device)). You have been warned.
 
 ### Special note for NAS110 and NAS220
 
@@ -401,9 +401,10 @@ within U-Boot. With the Linux kernel however there are problems, this is is work
 
 - :construction_worker: Hard disk drives 1 and 2 are connected to a 88SE6121 SATA-II
   controller, which is connected via PCIe. The controller basically works, unfortunately
-  the hard drives are _not_ beeing detected within the Linux kernel (`ahci` module error `failed to IDENTIFY`).
-  Update: Some 2.5" (5V) hard drives work, 3.5" (12V) hard drives do not work,
-  [see this related bug report](https://forum.doozan.com/read.php?2,94079,95854#msg-95854).
+  the hard drives are _not_ correctly beeing detected within the Linux kernel (`ahci` module error `failed to IDENTIFY`).
+  Update: Really old SATA-I-only (1.5Gb/s) hard drives work, SATA-II/III (3Gb/s and 6 Gb/s) hard
+  drives do not work, limiting interface link speed with `libata.force=1.5G` does
+  _not_ work around this problem).
 
 - Hard disk drives 3 and 4 are connected to the 88F6281 SoC (on chip peripherals, OCP)
   and working. HDD power (12V) for drives 3 and 4 can be controlled via GPIO pin 28.
@@ -434,4 +435,11 @@ This project is based on the work of several dedicated people:
 - [Tony Dinh](https://mibodhi.blogspot.com/) has put enormous work into providing
   [U-Boot](https://forum.doozan.com/read.php?3,12381) and [Linux kernel and rootfs](https://forum.doozan.com/read.php?2,12096)
   binaries for other kirkwood-based devices.
+
+## Misc
+
+- Seagate publishes the GPL source code as a download at
+  [NAS110](https://www.seagate.com/files/staticfiles/blackarmor/downloads/BA_NAS_1xx_GPL.ZIP),
+  [NAS220](https://www.seagate.com/files/staticfiles/blackarmor/downloads/BA_NAS_2xx_GPL.ZIP),
+  [NAS440](https://www.seagate.com/files/staticfiles/support/products/blackarmor/downloads/BA_NAS_4xx_GPL.zip).
 
