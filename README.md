@@ -443,3 +443,7 @@ This project is based on the work of several dedicated people:
   [NAS220](https://www.seagate.com/files/staticfiles/blackarmor/downloads/BA_NAS_2xx_GPL.ZIP),
   [NAS440](https://www.seagate.com/files/staticfiles/support/products/blackarmor/downloads/BA_NAS_4xx_GPL.zip).
 
+- The Iomega ix4-200d has very simliar hardware to the NAS440 (88F6281 SoC with 88SE6121 SATA via PCIe).
+  Lenovo publishes the [GPL source code](http://download.lenovo.com/nas/foss/lenovoemc-lifeline-fosskit-20120827.zip)
+  and [1000001101000](https://github.com/1000001101000) did further [research on the device](https://github.com/1000001101000/ix4-200d-research).
+
