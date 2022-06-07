@@ -404,7 +404,8 @@ within U-Boot. With the Linux kernel however there are problems, this is is work
   the hard drives are _not_ correctly beeing detected within the Linux kernel (`ahci` module error `failed to IDENTIFY`).
   Update: Really old SATA-I-only (1.5Gb/s) hard drives work, SATA-II/III (3Gb/s and 6 Gb/s) hard
   drives do not work, limiting interface link speed with `libata.force=1.5G` does
-  _not_ work around this problem).
+  _not_ work around this problem). This likely is caused by
+  [a problem with the MVEBU PCIe driver](https://bugzilla.kernel.org/show_bug.cgi?id=216094).
 
 - Hard disk drives 3 and 4 are connected to the 88F6281 SoC (on chip peripherals, OCP)
   and working. HDD power (12V) for drives 3 and 4 can be controlled via GPIO pin 28.
