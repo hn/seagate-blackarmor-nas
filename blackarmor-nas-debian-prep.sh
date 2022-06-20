@@ -36,6 +36,9 @@ while [ $# -gt 0 ]; do
 	--force)
 		FORCE=true
 		;;
+	--dist=*)
+		DEBDIST=$(echo "$1" | cut -d= -f2)
+		;;
 	nas110)
 		echo -e "\nUse the 'nas220' option, as the Blackarmor NAS 220 and 110 are reasonably compatible.\n"
 		exit 0
@@ -44,11 +47,11 @@ while [ $# -gt 0 ]; do
 		NASMODEL=$1
 		# Installing Debian 11 (bullseye) and higher with 128MB RAM is a bit more complex,
 		# check the website for more information.
-		DEBDIST=buster
+		DEBDIST=${DEBDIST:-buster}
 		;;
 	nas440)
 		NASMODEL=$1
-		DEBDIST=bullseye
+		DEBDIST=${DEBDIST:-bullseye}
 		echo -ne "\nWARNING: Support for the NAS 440 is currently experimental! "
 		echo -ne "Hard disk slots 1 and 2 do NOT work with the current Linux kernel. "
 		echo -e "Use '--force' to override this warning.\n"
@@ -75,8 +78,19 @@ if ! command -v mkimage &>/dev/null; then
 fi
 
 test -n "$NOVERBOSE" || VERBOSE="-v"
-DEBMIRROR=https://deb.debian.org/debian/dists/$DEBDIST/main/installer-armel/current/images/kirkwood
-KERNELVER=$(wget $WGETOPTS -qO- $DEBMIRROR/netboot/ | sed -n 's/.*vmlinuz-\([^\t ]*\)-marvell.*/\1/p')
+
+MIRRORLIST="https://archive.debian.org https://deb.debian.org"    # archive.d.o has to be the first
+for CHKMIRROR in $MIRRORLIST; do
+	DEBMIRROR=$CHKMIRROR/debian/dists/$DEBDIST/main/installer-armel/current/images/kirkwood
+	KERNELVER=$(wget $WGETOPTS -qO- $DEBMIRROR/netboot/ | sed -n 's/.*vmlinu[xz]-\([^\t ]*\)-marvell.*/\1/p')
+	if [ -n "${KERNELVER}" ]; then
+		break
+	fi
+done
+if [ -z "${KERNELVER}" ]; then
+	echo "Unable to find Debian mirror for dist '$DEBDIST'. Either the mirror is broken or the dist does not exist for this arch."
+	exit 1
+fi
 
 echo "NAS model set to: $NASMODEL"
 echo "Using Debian dist '$DEBDIST' with Debian kernel version '$KERNELVER' for installation."
