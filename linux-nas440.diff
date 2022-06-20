@@ -1,24 +1,52 @@
-diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts linux-4.19.181/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts
---- linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts	1970-01-01 01:00:00.000000000 +0100
-+++ linux-4.19.181/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts	2021-06-07 10:19:41.021974264 +0200
-@@ -0,0 +1,161 @@
+From fd160cd58293e9f2f1cc61782dc275e91960ee3d Mon Sep 17 00:00:00 2001
+From: Hajo Noerenberg <hajo-uboot@noerenberg.de>
+Date: Mon, 20 Jun 2022 11:42:26 +0200
+Subject: [PATCH] Add Device Tree file (DTS) for Seagate Blackarmor NAS440
+
+---
+ arch/arm/boot/dts/Makefile                    |   1 +
+ .../boot/dts/kirkwood-blackarmor-nas440.dts   | 166 ++++++++++++++++++
+ 2 files changed, 167 insertions(+)
+ create mode 100644 arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts
+
+diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
+index 184899808ee7..a408ac511d4b 100644
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -292,6 +292,7 @@ dtb-$(CONFIG_ARCH_KEYSTONE) += \
+ dtb-$(CONFIG_MACH_KIRKWOOD) += \
+ 	kirkwood-b3.dtb \
+ 	kirkwood-blackarmor-nas220.dtb \
++	kirkwood-blackarmor-nas440.dtb \
+ 	kirkwood-c200-v1.dtb \
+ 	kirkwood-cloudbox.dtb \
+ 	kirkwood-d2net.dtb \
+diff --git a/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts b/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts
+new file mode 100644
+index 000000000000..8027bcb5e3cf
+--- /dev/null
++++ b/arch/arm/boot/dts/kirkwood-blackarmor-nas440.dts
+@@ -0,0 +1,166 @@
++// SPDX-License-Identifier: GPL-2.0+
 +/*
-+ * Device Tree file for Seagate BlackArmor NAS400/440
++ * Device Tree file for Seagate Blackarmor NAS440
 + *
++ * Copyright (C) 2021 Hajo Noerenberg <hajo-uboot@noerenberg.de>
 + * Copyright (C) 2015 Andreas Fischer <af@bantuX.org>
-+ *
-+ * Licensed under GPLv2 or later.
++ * Copyright (C) 2014 Evgeni Dobrev <evgeni@studio-punkt.com>
 + */
 +
 +/dts-v1/;
 +
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
 +#include "kirkwood.dtsi"
 +#include "kirkwood-6281.dtsi"
 +
 +/ {
 +	model = "Seagate Blackarmor NAS440";
-+	compatible = "seagate,blackarmor-nas400", "seagate,blackarmor-nas440",
-+		"marvell,kirkwood-88f6281", "marvell,kirkwood";
++	compatible = "seagate,blackarmor-nas440","marvell,kirkwood-88f6281",
++		     "marvell,kirkwood";
 +
 +	memory { /* 256 MB */
 +		device_type = "memory";
@@ -30,13 +58,24 @@ diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-black
 +		stdout-path = &uart0;
 +	};
 +
-+	mbus {
-+		pcie-controller {
-+			status = "okay";
++	gpio_poweroff {
++		compatible = "gpio-poweroff";
++		gpios = <&gpio1 16 GPIO_ACTIVE_LOW>;		/* GPIO1-16 is MPP48 */
++	};
 +
-+			pcie@1,0 {
-+				status = "okay";
-+			};
++	gpio_keys {
++		compatible = "gpio-keys";
++
++		reset {
++			label = "Reset";
++			linux,code = <KEY_POWER>;
++			gpios = <&gpio0 29 GPIO_ACTIVE_LOW>;
++		};
++
++		button {
++			label = "Power";
++			linux,code = <KEY_SLEEP>;
++			gpios = <&gpio1 17 GPIO_ACTIVE_LOW>;	/* GPIO1-17 is MPP49 */
 +		};
 +	};
 +
@@ -44,31 +83,19 @@ diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-black
 +		compatible = "simple-bus";
 +		#address-cells = <1>;
 +		#size-cells = <0>;
-+		pinctrl-0 = <&pmx_power_sata0 &pmx_power_sata1>;
++		pinctrl-0 = <&pmx_power_socsata>;
 +		pinctrl-names = "default";
 +
-+		sata0_power: regulator@1 {
++		socsata_power: regulator@1 {
 +			compatible = "regulator-fixed";
 +			reg = <1>;
-+			regulator-name = "SATA0 Power";
-+			regulator-min-microvolt = <5000000>;
-+			regulator-max-microvolt = <5000000>;
++			regulator-name = "SoC SATA Power";
++			regulator-min-microvolt = <12000000>;
++			regulator-max-microvolt = <12000000>;
 +			enable-active-high;
 +			regulator-always-on;
 +			regulator-boot-on;
-+			gpio = <&gpio0 24 GPIO_ACTIVE_LOW>;
-+		};
-+
-+		sata1_power: regulator@2 {
-+			compatible = "regulator-fixed";
-+			reg = <2>;
-+			regulator-name = "SATA1 Power";
-+			regulator-min-microvolt = <5000000>;
-+			regulator-max-microvolt = <5000000>;
-+			enable-active-high;
-+			regulator-always-on;
-+			regulator-boot-on;
-+			gpio = <&gpio0 28 GPIO_ACTIVE_LOW>;
++			gpio = <&gpio0 28 GPIO_ACTIVE_HIGH>;
 +		};
 +	};
 +};
@@ -76,8 +103,8 @@ diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-black
 +/*
 + * Serial port routed to connector CN4
 + *
-+ * pin 1 - TX
-+ * pin 4 - RX
++ * pin 1 - TX (CPU's TX)
++ * pin 4 - RX (CPU's RX)
 + * pin 6 - GND
 + */
 +&uart0 {
@@ -98,12 +125,7 @@ diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-black
 +		marvell,function = "sata1";
 +	};
 +
-+	pmx_power_sata0: pmx-power-sata0 {
-+		marvell,pins = "mpp24";
-+		marvell,function = "gpio";
-+	};
-+
-+	pmx_power_sata1: pmx-power-sata1 {
++	pmx_power_socsata: pmx-power-socsata {
 +		marvell,pins = "mpp28";
 +		marvell,function = "gpio";
 +	};
@@ -119,17 +141,22 @@ diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-black
 +	};
 +};
 +
-+/*
-+ * Drives 3 and 4 are connected to the 88F6281 SoC.
-+ * Drives 1 and 2 are connected to a 88SE6121, which is connected via PCIe.
-+ */
 +&sata {
 +	status = "okay";
 +	nr-ports = <2>;
 +};
 +
++&pciec {
++	status = "okay";
++};
++
++&pcie0 {
++	status = "okay";
++};
++
 +&i2c0 {
 +	status = "okay";
++
 +	adt7473: thermal@2e {
 +		compatible = "adi,adt7473";
 +		reg = <0x2e>;
@@ -142,16 +169,18 @@ diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-black
 +
 +&mdio {
 +	status = "okay";
++
 +	ethphy0: ethernet-phy@8 {
-+		reg = <8>;
++		 reg = <8>;
 +	};
 +	ethphy1: ethernet-phy@9 {
-+		reg = <9>;
++		 reg = <9>;
 +	};
 +};
 +
 +&eth0 {
 +	status = "okay";
++
 +	ethernet0-port@0 {
 +		phy-handle = <&ethphy0>;
 +	};
@@ -159,18 +188,11 @@ diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/kirkwood-black
 +
 +&eth1 {
 +	status = "okay";
++
 +	ethernet1-port@0 {
 +		phy-handle = <&ethphy1>;
 +	};
 +};
-diff -Nurd --no-dereference linux-4.19.181.orig/arch/arm/boot/dts/Makefile linux-4.19.181/arch/arm/boot/dts/Makefile
---- linux-4.19.181.orig/arch/arm/boot/dts/Makefile	2021-03-17 16:43:52.000000000 +0100
-+++ linux-4.19.181/arch/arm/boot/dts/Makefile	2021-06-07 10:17:26.670817295 +0200
-@@ -234,6 +234,7 @@
- dtb-$(CONFIG_MACH_KIRKWOOD) += \
- 	kirkwood-b3.dtb \
- 	kirkwood-blackarmor-nas220.dtb \
-+	kirkwood-blackarmor-nas440.dtb \
- 	kirkwood-cloudbox.dtb \
- 	kirkwood-d2net.dtb \
- 	kirkwood-db-88f6281.dtb \
+-- 
+2.20.1
+
