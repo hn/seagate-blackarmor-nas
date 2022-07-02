@@ -110,7 +110,7 @@ fi
 
 apt-get install sysfsutils
 wget $WGETOPTS -nc -P /etc/sysfs.d $RAWREPO/blackarmor-$NASMODEL-fan.conf
-if [ -f ls /sys/class/hwmon/hwmon0/device/pwm1_enable ]; then
+if [ -f /sys/class/hwmon/hwmon0/device/pwm1_enable ]; then
 	# kernel 4.x "hwmon0/device/..."
 	perl -i -p -e 's%hwmon0(/device)?%hwmon0/device%' /etc/sysfs.d/blackarmor-$NASMODEL-fan.conf
 else
