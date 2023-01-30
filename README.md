@@ -35,9 +35,9 @@ codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)', based on Marvel
 All the NAS 4XX series products have the same motherboard and 4-bay enclosure. The second digit in this number scheme refers to the
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
-:warning: Warning: Support for the NAS 4XX is currently experimental! Hard disk slots 1 and 2 do **not**
-work - [see details](#NAS-440-patch-details). Do not install to your NAS 4XX if you plan to use more than
-two drives (slots 3 and 4 work fine).
+:warning: Warning: Support for the NAS 4XX is currently experimental! Hard disk slots 1 and 2 only
+work if you limit drive speed to 1.5Gb/s by setting a jumper on the back of the drive - [see details](#NAS-440-patch-details).
+Do not install to your NAS 4XX if you plan to use more than two drives (slots 3 and 4 work fine).
 
 ## Install Debian GNU/Linux
 
@@ -402,10 +402,11 @@ within U-Boot. With the Linux kernel however there are problems, this is is work
 - :construction_worker: Hard disk drives 1 and 2 are connected to a 88SE6121 SATA-II
   controller, which is connected via PCIe. The controller basically works, unfortunately
   the hard drives are _not_ correctly beeing detected within the Linux kernel (`ahci` module error `failed to IDENTIFY`).
-  Update: Really old SATA-I-only (1.5Gb/s) hard drives work, SATA-II/III (3Gb/s and 6 Gb/s) hard
-  drives do not work, limiting interface link speed with `libata.force=1.5G` does
-  _not_ work around this problem). This likely is caused by
-  [a problem with the MVEBU PCIe driver](https://bugzilla.kernel.org/show_bug.cgi?id=216094).
+  Update: Many drives work if you [limit drive speed to 1.5Gb/s by setting a jumper on the back of the hard drive](https://en.wikipedia.org/wiki/SATA#SATA_1.5_Gbit/s_and_SATA_3_Gbit/s)
+  (limiting interface link speed by software with `libata.force=1.5G` does _not_ work around this problem).
+  For example, see page 20 of the [Seagate product manual](https://www.seagate.com/staticfiles/support/disc/manuals/NL35%20Series%20&%20BC%20ES%20Series/Barracuda%20ES.2%20Series/100468393f.pdf)
+  or the [OPT1 jumper for Western Digital HDDs](https://community.wd.com/t/can-wd15earx-6gb-s-sata-drive-be-jumpered-to-1-5gb-s/15032) on how to setup the drive.
+  This likely is caused by [a problem with the MVEBU PCIe driver](https://bugzilla.kernel.org/show_bug.cgi?id=216094) or the [SATA interface](https://marc.info/?l=linux-ide&m=167465298000579).
 
 - Hard disk drives 3 and 4 are connected to the 88F6281 SoC (on chip peripherals, OCP)
   and working. HDD power (12V) for drives 3 and 4 can be controlled via GPIO pin 28.
