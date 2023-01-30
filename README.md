@@ -445,6 +445,17 @@ This project is based on the work of several dedicated people:
   [NAS220](https://www.seagate.com/files/staticfiles/blackarmor/downloads/BA_NAS_2xx_GPL.ZIP),
   [NAS440](https://www.seagate.com/files/staticfiles/support/products/blackarmor/downloads/BA_NAS_4xx_GPL.zip).
 
+- Marvell [Kirkwood CPU Functional Specifications](https://web.archive.org/web/20160428220449/http://www.marvell.com/embedded-processors/kirkwood/assets/FS_88F6180_9x_6281_OpenSource.pdf)
+  offers all the details you never dared to ask (794 pages PDF) about the 88F6192 and 88F6281.
+  See also Product Brief and Hardware Spec at [Marvell Kirkwood Homepage](https://web.archive.org/web/20160513194943/http://www.marvell.com/embedded-processors/kirkwood/)
+  and [Linux Kernel Marvell ARM SoC Support](https://www.kernel.org/doc/html/latest/arm/marvell.html).
+
+- The Blackarmor NAS motherboard code names are likely inspired by
+  lake '[Mono](https://en.wikipedia.org/wiki/Mono_Lake)' (NAS110),
+  '[Lassen](https://en.wikipedia.org/wiki/Lassen_Peak)' peak (NAS220) and
+  mount '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)' (NAS440).
+  All of them are located in [California](https://en.wikipedia.org/wiki/California) within the [Cascade Range](https://en.wikipedia.org/wiki/Cascade_Range).
+
 - The Iomega ix4-200d has very simliar hardware to the NAS440 (88F6281 SoC with 88SE6121 SATA via PCIe).
   Lenovo publishes the [GPL source code](http://download.lenovo.com/nas/foss/lenovoemc-lifeline-fosskit-20120827.zip)
   and [1000001101000](https://github.com/1000001101000) did further [research on the device](https://github.com/1000001101000/ix4-200d-research).
