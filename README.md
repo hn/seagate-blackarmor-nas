@@ -35,9 +35,9 @@ codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)', based on Marvel
 All the NAS 4XX series products have the same motherboard and 4-bay enclosure. The second digit in this number scheme refers to the
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
-:warning: Warning: Support for the NAS 4XX is currently experimental! Hard disk slots 1 and 2 only
-work if you limit drive speed to 1.5Gb/s by setting a jumper on the back of the drive - [see details](#NAS-440-patch-details).
-Do not install to your NAS 4XX if you plan to reliably use more than two drives (slots 3 and 4 work fine).
+:warning: Warning: The use of hard disk slots 1 and 2 of the NAS 4XX is currently experimental! To date, these slots only
+work at all if you limit drive speed to 1.5Gb/s by setting a jumper on the back of the drive - [see details](#NAS-440-patch-details).
+Hard disk slots 3 and 4 work properly, but the functionality, data integrity and reliability of slots 1 and 2 have not been tested.
 
 ## Install Debian GNU/Linux
 
