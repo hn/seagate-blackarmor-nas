@@ -6,6 +6,10 @@ Some years ago [I reverse engineered](archive/seagate-blackarmor-nas.txt) the Se
 With the following instructions you'll manage to install a fully updateable Debian GNU/Linux system
 to the NAS (kernel and initrd stored in NAND flash, updated via [flash-kernel package](https://packages.debian.org/stable/flash-kernel)).
 
+Please do me a favor: :thumbsup: If you use any information or code you find here, please link back to this page.
+:star: Also, please consider to star this project. I really like to keep track of who is using this to do creative things, especially if you are from other parts of the world.
+:smiley: You are welcome to open an issue to report on your personal success project and share it with others.
+
 ## Hardware
 
 All Blackarmor NAS devices are based on the Marvell 88F6000 SoC series with Sheeva CPU Technology,
