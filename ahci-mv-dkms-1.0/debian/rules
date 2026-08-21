@@ -1,0 +1,21 @@
+#!/usr/bin/make -f
+
+MODULE_VERSION := $(shell dpkg-parsechangelog -SVersion)
+
+%:
+	dh $@ --with dkms
+
+# Nothing is compiled at package build time - DKMS builds the module on the
+# target.  Keep debhelper from trying to run the kernel-module Makefile that
+# is only meant for kbuild.
+override_dh_auto_configure:
+override_dh_auto_build:
+override_dh_auto_test:
+override_dh_auto_clean:
+
+override_dh_install:
+	dh_install Makefile prepare.sh ahci-6121-irq-order.patch \
+		usr/src/ahci-mv-$(MODULE_VERSION)/
+
+override_dh_dkms:
+	dh_dkms -V $(MODULE_VERSION)

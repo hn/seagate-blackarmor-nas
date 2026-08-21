@@ -1,0 +1,30 @@
+Source: ahci-mv-dkms
+Section: kernel
+Priority: optional
+Maintainer: Hajo Noerenberg <hn@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13), dh-dkms | dkms (<< 3.0)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/hn/seagate-blackarmor-nas
+
+Package: ahci-mv-dkms
+Architecture: all
+Depends: ${misc:Depends}, dkms, patch, xz-utils
+Recommends: linux-source,
+            linux-headers-marvell | linux-headers-armmp | linux-headers-amd64 | linux-headers-arm64 | linux-headers
+Description: AHCI interrupt ordering fix for Marvell 88SE61xx (DKMS)
+ Rebuilds the ahci kernel module with a fix for Marvell 88SE6111/6121/6145
+ SATA controllers, which stop reporting interrupts for a port when
+ HOST_IRQ_STAT is cleared while PxIS still holds bits.  The completion of the
+ command in flight is then lost and the command only ends in a timeout, so
+ SATA-2 and SATA-3 disks fail to be identified at all.
+ .
+ The fix gives these controllers a private interrupt handler that clears the
+ host status before servicing the ports, which is what Marvell's own driver for
+ this chip family does.
+ .
+ The module sources are not shipped: they are extracted from Debian's own
+ linux-source package at build time, so the private header drivers/ata/ahci.h
+ matches the one the distribution's libahci.ko was built against.
+ .
+ See https://bugzilla.kernel.org/show_bug.cgi?id=216094

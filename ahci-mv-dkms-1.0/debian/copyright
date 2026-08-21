@@ -1,0 +1,21 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: ahci-mv-dkms
+Source: https://github.com/hn/seagate-blackarmor-nas
+
+Files: ahci-6121-irq-order.patch
+Copyright: 2026 Hajo Noerenberg
+Comment: Modifies drivers/ata/ahci.c from the Linux kernel and is therefore
+ covered by the kernel's licence.
+License: GPL-2
+
+Files: *
+Copyright: 2026 Hajo Noerenberg
+License: GPL-2
+
+License: GPL-2
+ This program is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License version 2 as published by the
+ Free Software Foundation.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 2 can be found in /usr/share/common-licenses/GPL-2.

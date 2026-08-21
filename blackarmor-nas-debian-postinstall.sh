@@ -4,7 +4,7 @@
 #
 # Install Debian GNU/Linux to a Seagate Blackarmor NAS 110 / 220 / 440
 #
-# (C) 2018-2022 Hajo Noerenberg
+# (C) 2018-2026 Hajo Noerenberg
 #
 #
 # http://www.noerenberg.de/
@@ -108,7 +108,7 @@ else
 	grep -q 862013 /etc/fstab || echo -e "# Set /run size, see Debian Bug #862013\ntmpfs\t/run\ttmpfs\tnosuid,noexec,size=20M\t0\t0" >> /etc/fstab
 fi
 
-apt-get install sysfsutils
+apt-get --yes install sysfsutils
 wget $WGETOPTS -nc -P /etc/sysfs.d $RAWREPO/blackarmor-$NASMODEL-fan.conf
 if [ -f /sys/class/hwmon/hwmon0/device/pwm1_enable ]; then
 	# kernel 4.x "hwmon0/device/..."
@@ -117,3 +117,10 @@ else
 	# kernel 5.x "hwmon0/..."
 	perl -i -p -e 's%hwmon0/device%hwmon0%' /etc/sysfs.d/blackarmor-$NASMODEL-fan.conf
 fi
+
+if [ $NASMODEL = "nas440" ]; then
+	# Fix SATA controller bug https://bugzilla.kernel.org/show_bug.cgi?id=216094
+	wget $WGETOPTS -nc -P /root $RAWREPO/ahci-mv-dkms_1.0_all.deb
+	apt-get --yes install /root/ahci-mv-dkms_*_all.deb
+fi
+

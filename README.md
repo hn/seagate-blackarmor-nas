@@ -39,9 +39,9 @@ codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)', based on Marvel
 All the NAS 4XX series products have the same motherboard and 4-bay enclosure. The second digit in this number scheme refers to the
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
 
-:warning: Warning: The use of hard disk slots 1 and 2 of the NAS 4XX is currently experimental! To date, these slots only
-work at all if you limit drive speed to 1.5Gb/s by setting a jumper on the back of the drive - [see details](#NAS-440-patch-details).
-Hard disk slots 3 and 4 work properly, but the functionality, data integrity and reliability of slots 1 and 2 have not been tested.
+:warning: Warning: Only hard drive slots 3 and 4 can be used for installation. The driver for hard drive
+slots 1 and 2 requires a [special kernel patch](ahci-mv-dkms-1.0/ahci-6121-irq-order.patch),
+which is not compiled until the system installation is complete. More details [here](#NAS-440-patch-details).
 
 ## Install Debian GNU/Linux
 
@@ -71,9 +71,9 @@ Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUS
 ### Preparing kernel and initrd images
 
 This script generally supports installing Debian 9 (Stretch), Debian 10
-(Buster, default for NAS110 and NAS220) and Debian 11 (Bullseye, default for NAS440).
+(Buster, default for NAS110 and NAS220), Debian 11 (Bullseye) and Debian 12 (Bookworm, default for NAS440).
 
-Changing the default and installing Debian 11 (Bullseye) on the NAS110 and NAS220 is a bit more work
+Changing the default and installing Debian 12 (Bookworm) on the NAS110 and NAS220 is a bit more work
 due to the limited RAM of only 128MB, check [this note](#Special-note-for-NAS110-and-NAS220) first.
 
 Use your favourite Linux workstation to execute [`blackarmor-nas-debian-prep.sh`](https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/blackarmor-nas-debian-prep.sh) to download and prepare Das U-Boot bootloader and kernel image:
@@ -401,15 +401,7 @@ in [Flashing Das U-Boot bootloader](#Flashing-Das-U-Boot-bootloader).
 ## NAS 440 patch details
 
 This [patch fully implements support for the NAS440 board and peripherals](u-boot-2022.04-nas440.diff)
-within U-Boot. With the Linux kernel however there are problems, this is is work-in-progress:
-
-- :construction_worker: Hard disk drives 1 and 2 are connected to a 88SE6121 SATA-II
-  controller, which is connected via PCIe. The controller basically works, unfortunately
-  the hard drives are _not_ correctly beeing detected within the Linux kernel (`ahci` module error `failed to IDENTIFY`).  
-  Update: Most drives work if you [limit drive speed to 1.5Gb/s by setting a jumper on the back of the hard drive](https://en.wikipedia.org/wiki/SATA#SATA_1.5_Gbit/s_and_SATA_3_Gbit/s)
-  (limiting interface link speed by software with `libata.force=1.5G` kernel option unfortunately does _not_ help to solve this problem).  
-  Interestingly, with U-Boot or older Linux kernels (< v3.16), the drives work without a speed limit jumper.
-  This has been discussed as [a problem with the MVEBU PCIe driver](https://bugzilla.kernel.org/show_bug.cgi?id=216094) or the [SATA interface](https://marc.info/?l=linux-ide&m=167465298000579).
+within U-Boot:
 
 - Hard disk drives 3 and 4 are connected to the 88F6281 SoC (on chip peripherals, OCP)
   and working. HDD power (12V) for drives 3 and 4 can be controlled via GPIO pin 28.
@@ -422,6 +414,15 @@ within U-Boot. With the Linux kernel however there are problems, this is is work
 
 - Various buttons (power, reset, LCD pageup/down) are connected via GPIO pins
   (see `GPIO_*` definitions in `nas440.h`).
+
+For the Linux kernel a long-standing bug has been fixed: Hard drive slots 1 and 2 are connected
+to an 88SE6121 SATA II controller, which is connected via PCIe. The controller does not fully comply
+with the AHCI standard and therefore requires a special kernel patch to ensure that Gen2/Gen3 hard drives,
+in particular, function correctly. This had been mistakenly discussed at great length
+as [a problem with the MVEBU PCIe driver](https://bugzilla.kernel.org/show_bug.cgi?id=216094) or
+the [SATA interface](https://marc.info/?l=linux-ide&m=167465298000579) before a solution could be found.
+This project provides a [Debian DKMS package](ahci-mv-dkms_1.0_all.deb) that
+[modifies](ahci-mv-dkms-1.0/ahci-6121-irq-order.patch) the kernel's ahci module accordingly.
 
 ## Credits
 

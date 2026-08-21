@@ -4,7 +4,7 @@
 #
 # Install Debian GNU/Linux to a Seagate Blackarmor NAS 110 / 220 / 440
 #
-# (C) 2018-2022 Hajo Noerenberg
+# (C) 2018-2026 Hajo Noerenberg
 #
 #
 # http://www.noerenberg.de/
@@ -45,15 +45,17 @@ while [ $# -gt 0 ]; do
 		;;
 	nas220)
 		NASMODEL=$1
-		# Installing Debian 11 (bullseye) and higher with 128MB RAM is a bit more complex,
+		# Installing Debian 12 (bookworm) and higher with 128MB RAM is a bit more complex,
 		# check the website for more information.
 		DEBDIST=${DEBDIST:-buster}
 		;;
 	nas440)
 		NASMODEL=$1
-		DEBDIST=${DEBDIST:-bullseye}
-		echo -ne "\nWARNING: Support for the NAS 440 is currently experimental! "
-		echo -ne "Hard disk slots 1 and 2 do NOT work with the current Linux kernel. "
+		DEBDIST=${DEBDIST:-bookworm}
+		echo -ne "\nInstallation on the NAS 440 is only possible in hard disk slots 3 and 4. "
+		echo -ne "Hard disk slots 1 and 2 will not function until a kernel patch has been "
+		echo -ne "applied to the fully installed system. Remove any hard disks from slots 1 and 2 "
+		echo -ne "during the very first installation. "
 		echo -e "Use '--force' to override this warning.\n"
 		if [ -z "$FORCE" ]; then
 			exit 1

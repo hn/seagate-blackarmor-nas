@@ -1,0 +1,18 @@
+PACKAGE_NAME="ahci-mv"
+PACKAGE_VERSION="#MODULE_VERSION#"
+
+# Take ahci.c and ahci.h from Debian's own linux-source package for the kernel
+# being built, then apply the fix.  That way the private header ahci.h matches
+# the one Debian's libahci.ko was built against, and only ahci.ko needs to be
+# replaced.
+PRE_BUILD="prepare.sh $kernelver"
+
+# No MAKE/CLEAN on purpose: dkms defaults to
+#   make -C $kernel_source_dir M=$dkms_tree/$module/$module_version/build
+# which is exactly right here.  Spelling it out with ${PWD} is a trap - the
+# maintainer script runs with the working directory at /, so M= ends up as /.
+
+BUILT_MODULE_NAME[0]="ahci"
+DEST_MODULE_LOCATION[0]="/updates"
+
+AUTOINSTALL="yes"

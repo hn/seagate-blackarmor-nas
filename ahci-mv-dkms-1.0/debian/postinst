@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+# dkms 3.x ignores REMAKE_INITRD and Debian does not refresh the initramfs when
+# a module is added to an already installed kernel.  ahci is usually part of the
+# initramfs, so do it here - after DKMS has built and installed the module.
+if [ "$1" = configure ] && command -v update-initramfs >/dev/null 2>&1; then
+	update-initramfs -u -k all
+fi

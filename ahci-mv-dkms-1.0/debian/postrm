@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+case "$1" in
+    remove|purge)
+	if command -v update-initramfs >/dev/null 2>&1; then
+		update-initramfs -u -k all
+	fi
+	;;
+esac

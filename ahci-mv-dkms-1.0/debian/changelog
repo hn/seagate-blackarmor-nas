@@ -1,0 +1,7 @@
+ahci-mv-dkms (1.0) unstable; urgency=medium
+
+  * Initial release.  Private AHCI interrupt handler for Marvell 88SE61xx that
+    clears HOST_IRQ_STAT before servicing the ports, fixing lost command
+    completions on the 88SE6121 (kernel bug 216094).
+
+ -- Hajo Noerenberg <hn@users.noreply.github.com>  Fri, 21 Aug 2026 08:37:22 +0200
