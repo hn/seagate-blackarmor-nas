@@ -108,6 +108,8 @@ else
 	grep -q 862013 /etc/fstab || echo -e "# Set /run size, see Debian Bug #862013\ntmpfs\t/run\ttmpfs\tnosuid,noexec,size=20M\t0\t0" >> /etc/fstab
 fi
 
+test -d /etc/initramfs-tools/conf.d && echo "RESUME=none" > /etc/initramfs-tools/conf.d/resume
+
 apt-get --yes install sysfsutils
 wget $WGETOPTS -nc -P /etc/sysfs.d $RAWREPO/blackarmor-$NASMODEL-fan.conf
 if [ -f /sys/class/hwmon/hwmon0/device/pwm1_enable ]; then
