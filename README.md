@@ -442,6 +442,8 @@ This project is based on the work of several dedicated people:
   [U-Boot](https://forum.doozan.com/read.php?3,12381) and [Linux kernel and rootfs](https://forum.doozan.com/read.php?2,12096)
   binaries for other kirkwood-based devices.
 
+- [Pali Rohár](https://github.com/pali) for patiently helping me debug the MVEBU PCI controller.
+
 ## Misc
 
 - Seagate publishes the GPL source code as a download at
