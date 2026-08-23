@@ -20,16 +20,10 @@ which has been [released in 2008](https://www.marvell.com/company/newsroom/marve
 Quick specs: 800 Mhz CPU (Marvell 88F6192), 128MB RAM, 1 USB port, 1 network interface, max 1 drive. Motherboard
 codename '[Mono](https://en.wikipedia.org/wiki/Mono_Lake)'.
 
-User [luctrev](https://github.com/luctrev) reports [a successful installation on his NAS 110](https://github.com/hn/seagate-blackarmor-nas/issues/6), so the hardware of the NAS 110 and 220 seems to be reasonable compatible.
-
 ### NAS 220
 
 Quick specs: 800 Mhz CPU (Marvell 88F6192), 128MB RAM, 2 USB ports, 1 network interface, max 2 drives. Motherboard
 codename '[Lassen](https://en.wikipedia.org/wiki/Lassen_Peak)', based on Marvell DB-88F6192A-BP development board.
-
-This script has been developed and tested on the Blackarmor NAS 220. There
-haven't been any error reports for a long time, so I consider the system as
-stable.
 
 ### NAS 400 / 420 / 440
 
@@ -38,10 +32,6 @@ codename '[Shasta](https://en.wikipedia.org/wiki/Mount_Shasta)', based on Marvel
 
 All the NAS 4XX series products have the same motherboard and 4-bay enclosure. The second digit in this number scheme refers to the
 number of drives that ship with the device: no drives (NAS 400), 2 drives RAID 1 (NAS 420) and 4 drives RAID 5 (NAS 440).
-
-:warning: Warning: Only hard drive slots 3 and 4 can be used for installation. The driver for hard drive
-slots 1 and 2 requires a [special kernel patch](ahci-mv-dkms-1.0/ahci-6121-irq-order.patch),
-which is not compiled until the system installation is complete. More details [here](#NAS-440-patch-details).
 
 ## Install Debian GNU/Linux
 
@@ -60,6 +50,16 @@ components `sata-modules-*-marvell-di`, `partman-ext3`, `partman-auto` and
 
 When installing Debian 9 or 10 (default for NAS110 and NAS220), this warning does not occur.
 
+### Special note for NAS440
+
+:warning: Only hard drive slots 3 and 4 can be used for installation with this script. The driver for hard drive
+slots 1 and 2 requires a [special kernel patch](ahci-mv-dkms-1.0/ahci-6121-irq-order.patch),
+which is not compiled until the system installation is complete. More details [here](#NAS-440-patch-details).
+However, all four hard drive slots are usable after installation.
+
+In principle, it would be possible to patch the kernel before the initial installation and thus make
+hard drive slots 1 and 2 usable during installation, but this would go beyond the scope of this project.
+
 ### Prerequisites
 
 Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUSB0 115200`) by connecting a 3.3V serial cable like this:
@@ -73,7 +73,7 @@ Setup a serial terminal (`115200 baud 8N1` e.g. by using `sudo screen /dev/ttyUS
 This script generally supports installing Debian 9 (Stretch), Debian 10
 (Buster, default for NAS110 and NAS220), Debian 11 (Bullseye) and Debian 12 (Bookworm, default for NAS440).
 
-Changing the default and installing Debian 12 (Bookworm) on the NAS110 and NAS220 is a bit more work
+Changing the default and installing Debian 12 (Bookworm) on the NAS110 and NAS220 is somewhat riskier,
 due to the limited RAM of only 128MB, check [this note](#Special-note-for-NAS110-and-NAS220) first.
 
 Use your favourite Linux workstation to execute [`blackarmor-nas-debian-prep.sh`](https://raw.githubusercontent.com/hn/seagate-blackarmor-nas/master/blackarmor-nas-debian-prep.sh) to download and prepare Das U-Boot bootloader and kernel image:
