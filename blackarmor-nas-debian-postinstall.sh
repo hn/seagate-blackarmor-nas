@@ -127,14 +127,9 @@ if [ $NASMODEL = "nas440" ]; then
 
 	# Show system information on the front panel LC display
 	apt-get --yes install python3-libgpiod
-	wget $WGETOPTS -O /usr/local/sbin/blackarmor-nas440-lcd \
-		$RAWREPO/blackarmor-nas440-lcd
+	wget $WGETOPTS -O /usr/local/sbin/blackarmor-nas440-lcd $RAWREPO/blackarmor-nas440-lcd
 	chmod 755 /usr/local/sbin/blackarmor-nas440-lcd
-	wget $WGETOPTS -O /etc/systemd/system/blackarmor-nas440-lcd.service \
-		$RAWREPO/blackarmor-nas440-lcd.service
-	systemctl daemon-reload
+	wget $WGETOPTS -O /etc/systemd/system/blackarmor-nas440-lcd.service $RAWREPO/blackarmor-nas440-lcd.service
 	systemctl enable blackarmor-nas440-lcd
-	# A display problem must not fail the installation
-	systemctl start blackarmor-nas440-lcd || true
 fi
 
