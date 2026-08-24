@@ -24,12 +24,14 @@
 #
 
 import argparse
+import fcntl
 import functools
 import glob
 import os
 import re
 import signal
 import socket
+import struct
 import sys
 import time
 
@@ -98,6 +100,10 @@ ROW_OFFSET = 40
 # How often the keys are read, and how often at most the display is rewritten.
 POLL_INTERVAL = 0.15
 MIN_REFRESH = 1.0
+
+# Shortest interval a network rate is measured over.  The main loop asks a
+# screen every POLL_INTERVAL, and a rate taken over 150 ms only jitters.
+TRAFFIC_WINDOW = 1.0
 
 CMD_CLEAR = 0x01
 
@@ -333,14 +339,51 @@ def _hwmon():
     return None
 
 
-def _primary_ip():
+SIOCGIFADDR = 0x8915
+
+
+def _net_ifaces():
+    """Every interface except the loopback, in a stable order.
+
+    No further filtering happens here.  Whether an interface is worth showing
+    is decided per refresh by _iface_up(), so a cable plugged in later brings
+    its pages back without restarting the service.
+    """
+    try:
+        # Not everything in there is an interface: "bonding_masters" is a
+        # plain file, the interfaces are symlinks to directories.
+        return sorted(name for name in os.listdir("/sys/class/net")
+                      if name != "lo"
+                      and os.path.isdir("/sys/class/net/" + name))
+    except OSError:
+        return []
+
+
+def _iface_up(name):
+    """True only with both an administrative up and a carrier.
+
+    That is exactly what operstate reports, so an eth1 without a cable is
+    "down" here and its pages drop out of the rotation.
+    """
+    try:
+        return _read("/sys/class/net/%s/operstate" % name) == "up"
+    except OSError:
+        return False
+
+
+def _iface_ipv4(name):
+    """The IPv4 address of one specific interface, or None.
+
+    A connect() to a dummy address would only ever reveal the source address
+    of the default route, which on a two port NAS hides the second interface.
+    SIOCGIFADDR asks about the interface itself.
+    """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        # Nothing is sent, this only asks the routing table which source
-        # address would be used.  192.0.2.0/24 is the reserved TEST-NET-1.
-        sock.connect(("192.0.2.1", 9))
-        return sock.getsockname()[0]
-    except OSError:
+        request = struct.pack("256s", name[:15].encode())
+        reply = fcntl.ioctl(sock.fileno(), SIOCGIFADDR, request)
+        return socket.inet_ntoa(reply[20:24])
+    except OSError:                     # no address configured
         return None
     finally:
         sock.close()
@@ -364,7 +407,68 @@ def _data_mounts():
             mounts.append(mountpoint)
     except OSError:
         pass
-    return mounts
+    # A mountpoint can appear more than once in /proc/mounts -- an over-mount
+    # or a bind mount lists it again -- and both entries would statvfs() to
+    # the same numbers.  Drop the repeats and put the pages in path order.
+    return sorted(set(mounts))
+
+
+# mdstat spells the running operation out; the display has room for four
+# characters next to the state flags and the percentage.
+MD_ACTIONS = {
+    "resync": "sync",
+    "recovery": "recv",
+    "check": "chck",
+    "repair": "repr",
+    "reshape": "resh",
+}
+
+
+def _md_arrays():
+    """One dict per array in /proc/mdstat.
+
+    An array is a block starting at "mdN :" and running up to the next such
+    line.  Everything after the name is optional: an inactive array has no
+    level, a raid0 has no [UU_U] field, and the progress line exists only
+    while the array is being rebuilt.
+    """
+    try:
+        mdstat = _read("/proc/mdstat")
+    except OSError:
+        return []
+
+    arrays = []
+    for block in re.split(r"^(?=md\d+\s*:)", mdstat, flags=re.M):
+        header = re.match(r"(md\d+)\s*:\s*(.*)", block)
+        if not header:
+            continue                    # the "Personalities" preamble
+        words = header.group(2).split()
+        if not words:
+            continue
+        level = None
+        ndev = 0
+        for word in words[1:]:
+            if "[" in word:             # a member, "sdd4[3]" or "sda1[0](S)"
+                ndev += 1
+            elif word.startswith("("):  # "(auto-read-only)"
+                continue
+            elif level is None:
+                level = word
+        flags = re.search(r"\[([U_]+)\]", block)
+        progress = re.search(r"\b(%s)\s*=\s*([\d.]+)%%"
+                             % "|".join(MD_ACTIONS), block)
+        arrays.append({
+            "name": header.group(1),
+            "state": words[0],
+            "level": level,
+            "ndev": ndev,
+            "flags": "[%s]" % flags.group(1) if flags else None,
+            "action": MD_ACTIONS[progress.group(1)] if progress else None,
+            "percent": float(progress.group(2)) if progress else None,
+        })
+    # mdstat lists the arrays in the order the kernel assembled them.  Sort by
+    # the number, not by the name, so md10 does not land between md1 and md2.
+    return sorted(arrays, key=lambda array: int(array["name"][2:]))
 
 
 def _human_size(num):
@@ -386,11 +490,63 @@ def screen_host():
     return ("Hostname", socket.gethostname())
 
 
-def screen_net():
-    address = _primary_ip()
+def screen_net(iface):
+    if not _iface_up(iface):
+        return None
+    address = _iface_ipv4(iface)
     if address is None:
         return None
-    return ("IPv4 address", address)
+    return ("IPv4 %s" % iface, address)
+
+
+# One entry per interface: (when sampled, (rx, tx), last rendered value).
+# The screens are plain callables, so the counters have to live out here.
+_traffic_sample = {}
+
+
+def _traffic_counters(iface):
+    base = "/sys/class/net/%s/statistics/" % iface
+    return (_read_int(base + "rx_bytes"), _read_int(base + "tx_bytes"))
+
+
+def sample_traffic(iface):
+    """Prime the counters, so the first look at the page already has a rate."""
+    try:
+        _traffic_sample[iface] = (time.monotonic(), _traffic_counters(iface),
+                                  None)
+    except (OSError, ValueError):
+        pass
+
+
+def screen_traffic(iface):
+    if not _iface_up(iface):
+        return None
+    try:
+        counters = _traffic_counters(iface)
+    except (OSError, ValueError):
+        return None
+
+    now = time.monotonic()
+    label = "Net %s rx/tx" % iface
+    previous = _traffic_sample.get(iface)
+    if previous is None:
+        _traffic_sample[iface] = (now, counters, None)
+        return (label, "measuring")
+
+    when, before, shown = previous
+    elapsed = now - when
+    if elapsed < TRAFFIC_WINDOW:
+        return (label, shown or "measuring")
+    if counters[0] < before[0] or counters[1] < before[1]:
+        # The counters went backwards, so the interface was reset.  Start
+        # over rather than show a negative rate.
+        _traffic_sample[iface] = (now, counters, shown)
+        return (label, shown or "measuring")
+
+    shown = "%s/s %s/s" % tuple(_human_size((counters[i] - before[i]) / elapsed)
+                                for i in (0, 1))
+    _traffic_sample[iface] = (now, counters, shown)
+    return (label, shown)
 
 
 def screen_temp():
@@ -470,39 +626,56 @@ def screen_disk(mountpoint):
             % (round(100 * (total - free) / total), _human_size(total)))
 
 
-def screen_raid():
-    try:
-        mdstat = _read("/proc/mdstat")
-    except OSError:
-        return None
-    arrays = re.findall(r"^(md\d+)\s*:\s*(\S+)\s+(\S+)", mdstat, re.M)
-    if not arrays:
-        return None
-    name, state, level = arrays[0]
-    status = re.search(r"\[([U_]+)\]", mdstat)
-    return ("RAID %s %s" % (name, level),
-            "%s %s" % (status.group(1) if status else "?", state))
+def screen_raid(name):
+    for array in _md_arrays():
+        if array["name"] == name:
+            break
+    else:
+        return None                     # the array was stopped
+
+    # An inactive array has no level to name, and repeating its state here
+    # would push the line past the 16th column -- it is on line 2 anyway.
+    label = "RAID %s %s" % (name, array["level"]) if array["level"] \
+        else "RAID %s" % name
+    if array["action"]:
+        # While rebuilding, the progress is what one wants to see.  int()
+        # rather than round(), so it does not read 100% before it is done.
+        value = "%s %d%% %s" % (array["flags"] or array["state"],
+                                int(array["percent"]), array["action"])
+    elif array["flags"]:
+        value = "%s %s" % (array["flags"], array["state"])
+    else:
+        # raid0 and linear have no per member state to report.
+        value = "%s %d disks" % (array["state"], array["ndev"])
+    return (label, value)
 
 
+# A value of None marks a name that expands into several pages, see
+# build_pages().
 SCREENS = {
     "host": screen_host,
-    "net": screen_net,
+    "net": None,                # one page per network interface
+    "traffic": None,            # one page per network interface
     "temp": screen_temp,
     "fan": screen_fan,
     "uptime": screen_uptime,
     "load": screen_load,
     "mem": screen_mem,
-    "disk": None,               # expands to one page per data mount
-    "raid": screen_raid,
+    "disk": None,               # one page per data mount
+    "raid": None,               # one page per md array
 }
-DEFAULT_SCREENS = "host,net,temp,fan,uptime,load,mem,disk,raid"
+DEFAULT_SCREENS = "host,net,traffic,temp,fan,uptime,load,mem,disk,raid"
 
 
 def build_pages(names):
     """Turn the requested screen names into a flat list of (label, callable).
 
-    "disk" is the one name that expands: a NAS has more than one volume worth
-    looking at, and each gets its own page.
+    Some names expand: a NAS has more than one volume, more than one array and
+    more than one network port, and each gets its own page.  The list is built
+    once, at startup.  It does not have to be rebuilt later because a page
+    whose object is uninteresting right now simply returns None and is
+    skipped -- an interface without a cable costs no page, and gets one back
+    the moment it is plugged in.
     """
     pages = []
     for name in names:
@@ -510,6 +683,17 @@ def build_pages(names):
             for mountpoint in _data_mounts() or ["/"]:
                 pages.append(("disk:" + mountpoint,
                               functools.partial(screen_disk, mountpoint)))
+        elif name == "raid":
+            for array in _md_arrays():
+                pages.append(("raid:" + array["name"],
+                              functools.partial(screen_raid, array["name"])))
+        elif name in ("net", "traffic"):
+            provider = screen_net if name == "net" else screen_traffic
+            for iface in _net_ifaces():
+                if name == "traffic":
+                    sample_traffic(iface)
+                pages.append(("%s:%s" % (name, iface),
+                              functools.partial(provider, iface)))
         else:
             pages.append((name, SCREENS[name]))
     return pages
@@ -554,6 +738,10 @@ def run(lcd, args):
     backlight_on = True
 
     index = 0
+    # Which way to look for the next page that has something to say.  It has
+    # to follow the button: searching forward after a press of pageup would
+    # land right back on the page one just left.
+    direction = 1
     last_page = 0.0
     last_press = time.monotonic()
     last_refresh = 0.0
@@ -565,7 +753,8 @@ def run(lcd, args):
         up, down = lcd.pressed()
 
         if (up or down) and not was_pressed:
-            index += 1 if down else -1
+            direction = 1 if down else -1
+            index += direction
             last_press = now
             last_page = now
             shown = None
@@ -575,6 +764,7 @@ def run(lcd, args):
         was_pressed = up or down
 
         if args.rotate_seconds and now - last_page >= args.rotate_seconds:
+            direction = 1
             index += 1
             last_page = now
             shown = None
@@ -587,7 +777,7 @@ def run(lcd, args):
         # Find the next screen that has something to say.
         content = None
         for step in range(len(pages)):
-            position = (index + step) % len(pages)
+            position = (index + step * direction) % len(pages)
             label, provider = pages[position]
             try:
                 content = provider()
