@@ -124,5 +124,17 @@ if [ $NASMODEL = "nas440" ]; then
 	# Fix SATA controller bug https://bugzilla.kernel.org/show_bug.cgi?id=216094
 	wget $WGETOPTS -nc -P /root $RAWREPO/ahci-mv-dkms_1.0_all.deb
 	apt-get --yes install /root/ahci-mv-dkms_*_all.deb
+
+	# Show system information on the front panel LC display
+	apt-get --yes install python3-libgpiod
+	wget $WGETOPTS -O /usr/local/sbin/blackarmor-nas440-lcd \
+		$RAWREPO/blackarmor-nas440-lcd
+	chmod 755 /usr/local/sbin/blackarmor-nas440-lcd
+	wget $WGETOPTS -O /etc/systemd/system/blackarmor-nas440-lcd.service \
+		$RAWREPO/blackarmor-nas440-lcd.service
+	systemctl daemon-reload
+	systemctl enable blackarmor-nas440-lcd
+	# A display problem must not fail the installation
+	systemctl start blackarmor-nas440-lcd || true
 fi
 

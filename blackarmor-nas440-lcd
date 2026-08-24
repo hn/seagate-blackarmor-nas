@@ -1,0 +1,683 @@
+#!/usr/bin/env python3
+#
+# blackarmor-nas440-lcd
+#
+# Show system information on the front panel LC display of a Seagate
+# Blackarmor NAS440.  The display is a 2x16 HD44780 wired to GPIO pins of the
+# Marvell 88F6281 (Kirkwood) SoC, driven in 8 bit parallel mode.
+#
+# (C) 2026 Hajo Noerenberg
+#
+# http://www.noerenberg.de/
+# https://github.com/hn/seagate-blackarmor-nas
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 3.0 as
+# published by the Free Software Foundation.
+#
+#
+# Note on the display: this panel is NOT addressed the way a standard 2x16
+# HD44780 module is.  Its second line starts at DDRAM address 40 (0x28), not
+# at 64 (0x40) - see ROW_OFFSET below.  That is why generic HD44780 libraries,
+# and the kernel's own auxdisplay/hd44780 driver which hardcodes 64, put the
+# second line into invisible buffer memory here.
+#
+
+import argparse
+import functools
+import glob
+import os
+import re
+import signal
+import socket
+import sys
+import time
+
+try:
+    import gpiod
+except ImportError:
+    gpiod = None                # only --dry-run works without it
+
+# ---------------------------------------------------------------- hardware
+
+# Kirkwood has two GPIO banks.  Linux line N of the second bank is MPP 32+N,
+# which is how the board's device tree spells it, too ("GPIO1-16 is MPP48").
+CHIP_LOW = "gpiochip0"          # MPP 0..31
+CHIP_HIGH = "gpiochip1"         # MPP 32..49
+CHIP_LOW_LINES = 32
+CHIP_HIGH_LINES = 18
+
+# Lines this program is allowed to use, as (chip, line).
+LINES = {
+    "backlight": (CHIP_LOW, 7),         # MPP7
+    "pagedown":  (CHIP_HIGH, 2),        # MPP34, input, low when pressed
+    "rs":        (CHIP_HIGH, 3),        # MPP35
+    "d0":        (CHIP_HIGH, 4),        # MPP36
+    "d1":        (CHIP_HIGH, 5),        # MPP37
+    "d2":        (CHIP_HIGH, 6),        # MPP38
+    "d3":        (CHIP_HIGH, 7),        # MPP39
+    "d4":        (CHIP_HIGH, 8),        # MPP40
+    "d5":        (CHIP_HIGH, 9),        # MPP41
+    "d6":        (CHIP_HIGH, 10),       # MPP42
+    "d7":        (CHIP_HIGH, 11),       # MPP43
+    "rw":        (CHIP_HIGH, 12),       # MPP44
+    "e":         (CHIP_HIGH, 13),       # MPP45
+    "pageup":    (CHIP_HIGH, 15),       # MPP47, input, low when pressed
+}
+
+DATA_LINES = ["d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7"]
+
+# Lines that must never be touched by this program.  The first two are why
+# this table exists at all: a single wrong number switches the machine off or
+# cuts power to two hard drives.
+FORBIDDEN = {
+    (CHIP_HIGH, 16): "board power - pulling this low shuts the machine down",
+    (CHIP_LOW, 28):  "12V power for drive slots 3 and 4",
+    (CHIP_LOW, 29):  "reset button, owned by gpio-keys",
+    (CHIP_HIGH, 17): "power button, owned by gpio-keys",
+    (CHIP_LOW, 12):  "front panel LED shift register, data",
+    (CHIP_LOW, 13):  "front panel LED shift register, clock",
+}
+
+# Catch a typo in the tables above before a single line is ever requested.
+for _name, _pair in LINES.items():
+    if _pair in FORBIDDEN:
+        sys.exit("blackarmor-nas440-lcd: refusing to run, %s (%s line %d) is "
+                 "on the forbidden list: %s"
+                 % (_name, _pair[0], _pair[1], FORBIDDEN[_pair]))
+
+# ---------------------------------------------------------------- HD44780
+
+# Geometry of the panel fitted to the NAS440.  ROW_OFFSET is the DDRAM
+# distance between the two rows and is the unusual one: 40, where a standard
+# 2x16 module would need 64.
+COLS = 16
+ROWS = 2
+ROW_OFFSET = 40
+
+# How often the keys are read, and how often at most the display is rewritten.
+POLL_INTERVAL = 0.15
+MIN_REFRESH = 1.0
+
+CMD_CLEAR = 0x01
+
+
+def cmd_entry_mode(increment, shift):
+    return 0x04 | (0x02 if increment else 0) | (0x01 if shift else 0)
+
+
+def cmd_display_ctl(display, cursor, blink):
+    return 0x08 | (0x04 if display else 0) | (0x02 if cursor else 0) \
+        | (0x01 if blink else 0)
+
+
+def cmd_function_set(bus8bit, twoline, font5x10):
+    return 0x20 | (0x10 if bus8bit else 0) | (0x08 if twoline else 0) \
+        | (0x04 if font5x10 else 0)
+
+
+def cmd_ddram_addr(addr):
+    return 0x80 | (addr & 0x7f)
+
+
+# The HD44780 character ROM is not ASCII beyond the basics, and it has no
+# umlauts at all.  Fold what we are likely to meet in hostnames and paths.
+CHARMAP = {
+    "ä": "ae", "ö": "oe", "ü": "ue",
+    "Ä": "Ae", "Ö": "Oe", "Ü": "Ue",
+    "ß": "ss",
+    "→": chr(0x7e), "←": chr(0x7f),   # arrows, same in ROM A00 and A02
+}
+
+# Where the degree sign lives depends on the character ROM and differs between
+# panels: 0xdf in ROM A00, 0xb0 in A02.  On the NAS440 panel it sits at 0xb2,
+# found with --charset.  Set to 0 to write a plain "C" instead, which is right
+# on every display.
+DEGREE_CODE = 0xb2
+
+
+def degree_glyph():
+    return chr(DEGREE_CODE) if DEGREE_CODE else ""
+
+
+def to_display(text):
+    out = []
+    for ch in text:
+        if ch == "°":
+            out.append(degree_glyph())
+        elif ch in CHARMAP:
+            out.append(CHARMAP[ch])
+        elif 0x20 <= ord(ch) <= 0x7d:
+            out.append(ch)
+        else:
+            out.append("?")
+    return "".join(out)
+
+
+class Lcd:
+    """The panel.  Write only: RW is held low, so no busy flag polling."""
+
+    def __init__(self, dry_run=False, verbose=False):
+        self.verbose = verbose
+        self.dry_run = dry_run
+        self.chips = {}
+        self.lines = {}
+        self.data_bulk = None
+
+    # -- setup
+
+    def _open_chip(self, name, expected_lines):
+        chip = gpiod.Chip(name)
+        if chip.num_lines() != expected_lines:
+            raise RuntimeError(
+                "%s has %d lines, expected %d - this does not look like the "
+                "Kirkwood GPIO bank this program was written for"
+                % (name, chip.num_lines(), expected_lines))
+        return chip
+
+    def _line(self, name):
+        chip_name, offset = LINES[name]
+        if (chip_name, offset) in FORBIDDEN:
+            raise RuntimeError("refusing to use %s line %d: %s"
+                               % (chip_name, offset, FORBIDDEN[(chip_name, offset)]))
+        return self.chips[chip_name].get_line(offset)
+
+    def open(self):
+        if self.dry_run:
+            return
+        if gpiod is None:
+            raise RuntimeError("python3-libgpiod is missing "
+                               "(apt install python3-libgpiod)")
+        self.chips[CHIP_LOW] = self._open_chip(CHIP_LOW, CHIP_LOW_LINES)
+        self.chips[CHIP_HIGH] = self._open_chip(CHIP_HIGH, CHIP_HIGH_LINES)
+
+        # The eight data lines are requested as one bulk so that a byte goes
+        # out with a single ioctl instead of eight.  On a 1.2 GHz ARMv5 the
+        # syscall overhead, not the display, is what costs time.
+        offsets = [LINES[n][1] for n in DATA_LINES]
+        for off in offsets:
+            if (CHIP_HIGH, off) in FORBIDDEN:
+                raise RuntimeError("data line %d is forbidden" % off)
+        self.data_bulk = self.chips[CHIP_HIGH].get_lines(offsets)
+        self.data_bulk.request(consumer="nas440-lcd",
+                               type=gpiod.LINE_REQ_DIR_OUT,
+                               default_vals=[0] * len(offsets))
+
+        for name in ("rs", "rw", "e", "backlight"):
+            line = self._line(name)
+            line.request(consumer="nas440-lcd",
+                         type=gpiod.LINE_REQ_DIR_OUT, default_val=0)
+            self.lines[name] = line
+
+        # The keys are a convenience: if something else owns them, say so
+        # and carry on without paging rather than refusing to display at all.
+        for name in ("pageup", "pagedown"):
+            try:
+                line = self._line(name)
+                line.request(consumer="nas440-lcd", type=gpiod.LINE_REQ_DIR_IN)
+                self.lines[name] = line
+            except OSError as err:
+                print("blackarmor-nas440-lcd: %s key unavailable (%s), "
+                      "paging disabled" % (name, err), file=sys.stderr)
+
+    def close(self):
+        for line in self.lines.values():
+            line.release()
+        if self.data_bulk is not None:
+            self.data_bulk.release()
+        self.lines = {}
+        self.data_bulk = None
+        self.chips = {}
+
+    # -- low level
+
+    @staticmethod
+    def _delay_us(usec):
+        # Every HD44780 timing is a minimum, and Python's own call overhead
+        # already exceeds the short ones by orders of magnitude - the 450 ns
+        # enable pulse needs no help.  Only the ~40 us execution time per
+        # byte and the ~2 ms after clear/home really have to be waited out.
+        if usec >= 1000:
+            time.sleep(usec / 1e6)
+        else:
+            deadline = time.perf_counter() + usec / 1e6
+            while time.perf_counter() < deadline:
+                pass
+
+    def _send(self, value, mode):
+        """mode 0 = command, 1 = character data"""
+        if self.dry_run:
+            print("send %s 0x%02x%s" % ("data" if mode else "cmd ", value,
+                                        "  %r" % chr(value) if mode else ""))
+            return
+
+        self.lines["rs"].set_value(mode)
+        self.data_bulk.set_values([(value >> i) & 1 for i in range(8)])
+        self.lines["e"].set_value(1)
+        self.lines["e"].set_value(0)
+        self._delay_us(50)
+
+    # -- panel operations
+
+    def init(self):
+        if not self.dry_run:
+            self.lines["rw"].set_value(0)       # write only, always
+        # Function set three times is the documented way to get a controller
+        # into a known state regardless of how it was left.
+        for _ in range(3):
+            self._send(cmd_function_set(True, ROWS > 1, False), 0)
+            self._delay_us(50)
+        self._send(cmd_display_ctl(True, False, False), 0)
+        self._delay_us(50)
+        self.clear()
+        self._send(cmd_entry_mode(True, False), 0)
+        self._delay_us(50)
+
+    def clear(self):
+        self._send(CMD_CLEAR, 0)
+        self._delay_us(2000)                    # clear really needs ~1.5 ms
+
+    def text(self, row, text):
+        rendered = to_display(text)
+        if self.verbose and len(rendered) > COLS:
+            print("row %d truncated by %d characters: %r"
+                  % (row, len(rendered) - COLS, rendered), file=sys.stderr)
+        self.write_codes(row, [ord(ch) for ch in rendered[:COLS].ljust(COLS)])
+
+    def write_codes(self, row, codes):
+        """Write raw code points to a row, bypassing the character mapping."""
+        if not 0 <= row < ROWS:
+            raise ValueError("row %d out of range" % row)
+        self._send(cmd_ddram_addr(ROW_OFFSET * row), 0)
+        for code in codes:
+            self._send(code & 0xff, 1)
+
+    def backlight(self, on):
+        if self.dry_run:
+            print("backlight %s" % ("on" if on else "off"))
+            return
+        self.lines["backlight"].set_value(1 if on else 0)
+
+    # -- buttons, active low
+
+    def pressed(self):
+        if self.dry_run or "pageup" not in self.lines:
+            return (False, False)
+        return (self.lines["pageup"].get_value() == 0,
+                self.lines["pagedown"].get_value() == 0)
+
+
+# ----------------------------------------------------------------- screens
+#
+# Every screen returns two strings of up to 16 characters, or None when its
+# data source is not available.  A screen must never raise: a missing sensor
+# should cost one page, not the service.
+
+
+def _read(path):
+    with open(path) as handle:
+        return handle.read().strip()
+
+
+def _read_int(path):
+    return int(_read(path))
+
+
+def _hwmon():
+    for directory in sorted(glob.glob("/sys/class/hwmon/hwmon*")):
+        try:
+            if _read(os.path.join(directory, "name")) in ("adt7473", "adt7475"):
+                return directory
+        except OSError:
+            continue
+    return None
+
+
+def _primary_ip():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # Nothing is sent, this only asks the routing table which source
+        # address would be used.  192.0.2.0/24 is the reserved TEST-NET-1.
+        sock.connect(("192.0.2.1", 9))
+        return sock.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        sock.close()
+
+
+def _unescape_mount(path):
+    """/proc/mounts writes space, tab, newline and backslash in octal."""
+    return re.sub(r"\\(\d{3})", lambda m: chr(int(m.group(1), 8)), path)
+
+
+def _data_mounts():
+    mounts = []
+    try:
+        for entry in _read("/proc/mounts").splitlines():
+            device, mountpoint, fstype = entry.split()[:3]
+            mountpoint = _unescape_mount(mountpoint)
+            if not device.startswith(("/dev/sd", "/dev/md")):
+                continue
+            if fstype in ("swap", "devtmpfs") or mountpoint.startswith("/boot"):
+                continue
+            mounts.append(mountpoint)
+    except OSError:
+        pass
+    return mounts
+
+
+def _human_size(num):
+    for unit in ("", "K", "M", "G", "T"):
+        if num < 1024:
+            break
+        num /= 1024.0
+    if unit and num < 10:
+        return "%.1f%s" % (num, unit)
+    return "%d%s" % (round(num), unit)
+
+
+# Every screen puts a label on the first line and the value or values on the
+# second, and returns None when its data source is not available.  A screen
+# must never raise: a missing sensor should cost one page, not the service.
+
+
+def screen_host():
+    return ("Hostname", socket.gethostname())
+
+
+def screen_net():
+    address = _primary_ip()
+    if address is None:
+        return None
+    return ("IPv4 address", address)
+
+
+def screen_temp():
+    hwmon = _hwmon()
+    if hwmon is None:
+        return None
+    values = []
+    for channel in ("temp2_input", "temp3_input"):
+        try:
+            # Write the placeholder, not the ROM byte: to_display() is the
+            # one place that knows which code point this panel uses, and it
+            # replaces anything it does not know with "?".
+            values.append("%d°C" % round(_read_int(os.path.join(hwmon, channel)) / 1000))
+        except (OSError, ValueError):
+            pass
+    if not values:
+        return None
+    return ("Temperature", " ".join(values))
+
+
+def screen_fan():
+    hwmon = _hwmon()
+    if hwmon is None:
+        return None
+    try:
+        return ("Fan speed", "%d rpm" % _read_int(os.path.join(hwmon, "fan1_input")))
+    except (OSError, ValueError):
+        return None
+
+
+def screen_uptime():
+    try:
+        uptime = int(float(_read("/proc/uptime").split()[0]))
+    except (OSError, ValueError, IndexError):
+        return None
+    days, rest = divmod(uptime, 86400)
+    hours, rest = divmod(rest, 3600)
+    if days:
+        return ("Uptime", "%dd %dh" % (days, hours))
+    return ("Uptime", "%dh %dm" % (hours, rest // 60))
+
+
+def screen_load():
+    try:
+        load = _read("/proc/loadavg").split()[:3]
+    except (OSError, IndexError):
+        return None
+    return ("Load average", " ".join(load))
+
+
+def screen_mem():
+    try:
+        fields = {}
+        for entry in _read("/proc/meminfo").splitlines():
+            key, value = entry.split(":", 1)
+            fields[key] = int(value.split()[0])
+    except (OSError, ValueError):
+        return None
+    total = fields.get("MemTotal", 0)
+    available = fields.get("MemAvailable", 0)
+    if not total:
+        return None
+    return ("Memory used", "%d%% of %s"
+            % (round(100 * (total - available) / total), _human_size(total * 1024)))
+
+
+def screen_disk(mountpoint):
+    try:
+        stat = os.statvfs(mountpoint)
+    except OSError:
+        return None
+    total = stat.f_blocks * stat.f_frsize
+    free = stat.f_bavail * stat.f_frsize
+    if not total:
+        return None
+    return ("Disk " + mountpoint, "%d%% of %s"
+            % (round(100 * (total - free) / total), _human_size(total)))
+
+
+def screen_raid():
+    try:
+        mdstat = _read("/proc/mdstat")
+    except OSError:
+        return None
+    arrays = re.findall(r"^(md\d+)\s*:\s*(\S+)\s+(\S+)", mdstat, re.M)
+    if not arrays:
+        return None
+    name, state, level = arrays[0]
+    status = re.search(r"\[([U_]+)\]", mdstat)
+    return ("RAID %s %s" % (name, level),
+            "%s %s" % (status.group(1) if status else "?", state))
+
+
+SCREENS = {
+    "host": screen_host,
+    "net": screen_net,
+    "temp": screen_temp,
+    "fan": screen_fan,
+    "uptime": screen_uptime,
+    "load": screen_load,
+    "mem": screen_mem,
+    "disk": None,               # expands to one page per data mount
+    "raid": screen_raid,
+}
+DEFAULT_SCREENS = "host,net,temp,fan,uptime,load,mem,disk,raid"
+
+
+def build_pages(names):
+    """Turn the requested screen names into a flat list of (label, callable).
+
+    "disk" is the one name that expands: a NAS has more than one volume worth
+    looking at, and each gets its own page.
+    """
+    pages = []
+    for name in names:
+        if name == "disk":
+            for mountpoint in _data_mounts() or ["/"]:
+                pages.append(("disk:" + mountpoint,
+                              functools.partial(screen_disk, mountpoint)))
+        else:
+            pages.append((name, SCREENS[name]))
+    return pages
+
+
+# -------------------------------------------------------------------- main
+
+stop_requested = False
+
+
+def on_signal(signum, frame):
+    global stop_requested
+    stop_requested = True
+
+
+def do_charset(lcd, start):
+    """Show 16 glyphs of the panel's character ROM, to find a code point."""
+    lcd.init()
+    lcd.backlight(True)
+    lcd.text(0, "0x%02x..0x%02x" % (start, start + 15))
+    lcd.write_codes(1, range(start, start + COLS))
+    print("row 2 shows code points 0x%02x to 0x%02x, left to right"
+          % (start, start + COLS - 1))
+
+
+def run(lcd, args):
+    names = [n.strip() for n in args.screens.split(",") if n.strip()]
+    if not names:
+        sys.exit("no screens selected")
+    unknown = [n for n in names if n not in SCREENS]
+    if unknown:
+        sys.exit("unknown screen(s): %s (known: %s)"
+                 % (", ".join(unknown), ", ".join(sorted(SCREENS))))
+    pages = build_pages(names)
+    if not pages:
+        sys.exit("no pages to show")
+    if args.verbose:
+        print("pages: %s" % ", ".join(label for label, _ in pages))
+
+    lcd.init()
+    lcd.backlight(True)
+    backlight_on = True
+
+    index = 0
+    last_page = 0.0
+    last_press = time.monotonic()
+    last_refresh = 0.0
+    was_pressed = False
+    shown = None
+
+    while not stop_requested:
+        now = time.monotonic()
+        up, down = lcd.pressed()
+
+        if (up or down) and not was_pressed:
+            index += 1 if down else -1
+            last_press = now
+            last_page = now
+            shown = None
+            if not backlight_on:
+                lcd.backlight(True)
+                backlight_on = True
+        was_pressed = up or down
+
+        if args.rotate_seconds and now - last_page >= args.rotate_seconds:
+            index += 1
+            last_page = now
+            shown = None
+
+        if args.backlight_timeout and backlight_on \
+                and now - last_press >= args.backlight_timeout:
+            lcd.backlight(False)
+            backlight_on = False
+
+        # Find the next screen that has something to say.
+        content = None
+        for step in range(len(pages)):
+            position = (index + step) % len(pages)
+            label, provider = pages[position]
+            try:
+                content = provider()
+            except Exception as err:              # a screen must never kill us
+                print("screen %s failed: %s" % (label, err), file=sys.stderr)
+                content = None
+            if content is not None:
+                index = position
+                break
+
+        if content is None:
+            content = ("no data", "")
+
+        if content != shown and now - last_refresh >= MIN_REFRESH:
+            last_refresh = now
+            started = time.perf_counter()
+            lcd.text(0, content[0])
+            lcd.text(1, content[1])
+            if args.verbose:
+                print("refresh %.1f ms: %r"
+                      % ((time.perf_counter() - started) * 1000, content))
+            shown = content
+
+        time.sleep(POLL_INTERVAL)
+
+    lcd.clear()
+    lcd.text(0, args.stop_message)
+    lcd.backlight(False)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Show system information on the Seagate Blackarmor "
+                    "NAS440 front panel LC display.")
+    parser.add_argument("--text", metavar="L1[|L2]",
+                        help="write one screen and exit")
+    parser.add_argument("--backlight", choices=("on", "off"),
+                        help="switch the backlight and exit")
+    parser.add_argument("--clear", action="store_true",
+                        help="clear the display and exit")
+    parser.add_argument("--charset", type=lambda v: int(v, 0), metavar="START",
+                        help="show 16 glyphs of the character ROM starting at "
+                             "code point START (e.g. 0xb0) and exit")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="print what would be sent, touch no GPIO line")
+    parser.add_argument("--screens", default=DEFAULT_SCREENS,
+                        help="comma separated list, in order (default: %s; "
+                             "known: %s)"
+                             % (DEFAULT_SCREENS, ",".join(sorted(SCREENS))))
+    parser.add_argument("--rotate-seconds", type=float, default=8.0,
+                        metavar="S", help="advance to the next screen after S "
+                                          "seconds, 0 to disable")
+    parser.add_argument("--backlight-timeout", type=float, default=0.0,
+                        metavar="S", help="switch the backlight off S seconds "
+                                          "after the last key press, "
+                                          "0 to keep it on")
+    parser.add_argument("--stop-message", default="System stopped",
+                        help="text to leave on the display when the service "
+                             "is stopped")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="report refresh timing")
+    args = parser.parse_args()
+
+    lcd = Lcd(dry_run=args.dry_run, verbose=args.verbose)
+    try:
+        lcd.open()
+    except (OSError, RuntimeError) as err:
+        sys.exit("blackarmor-nas440-lcd: %s" % err)
+
+    signal.signal(signal.SIGINT, on_signal)
+    signal.signal(signal.SIGTERM, on_signal)
+
+    try:
+        if args.backlight:
+            lcd.backlight(args.backlight == "on")
+        elif args.clear:
+            lcd.init()          # init() ends with a clear
+        elif args.charset is not None:
+            do_charset(lcd, args.charset)
+        elif args.text is not None:
+            rows = args.text.split("|")
+            lcd.init()
+            lcd.backlight(True)
+            for row, text in enumerate(rows[:2]):
+                lcd.text(row, text)
+        else:
+            run(lcd, args)
+    finally:
+        lcd.close()
+
+
+if __name__ == "__main__":
+    main()

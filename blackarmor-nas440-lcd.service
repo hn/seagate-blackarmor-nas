@@ -1,0 +1,38 @@
+[Unit]
+Description=Seagate Blackarmor NAS440 front panel LC display
+Documentation=https://github.com/hn/seagate-blackarmor-nas
+After=network.target
+
+[Service]
+Type=exec
+EnvironmentFile=-/etc/default/blackarmor-nas440-lcd
+ExecStart=/usr/local/sbin/blackarmor-nas440-lcd $DAEMON_ARGS
+Restart=on-failure
+RestartSec=5
+# A status display must never compete with real work: lowest CPU priority and
+# idle I/O.  All HD44780 timings are minimums, so a delayed write is harmless.
+Nice=19
+IOSchedulingClass=idle
+# The farewell message is written on SIGTERM, give it a moment.
+TimeoutStopSec=5
+
+# Root is needed for /dev/gpiochip*, so narrow down what else is reachable.
+DevicePolicy=closed
+DeviceAllow=/dev/gpiochip0 rw
+DeviceAllow=/dev/gpiochip1 rw
+NoNewPrivileges=yes
+ProtectSystem=strict
+# read-only rather than hidden: data mounts may live below /home and the
+# disk usage screen has to be able to stat them
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+# AF_INET is used to ask the routing table for the primary address
+RestrictAddressFamilies=AF_UNIX AF_INET
+
+[Install]
+WantedBy=multi-user.target
