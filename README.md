@@ -57,8 +57,11 @@ slots 1 and 2 requires a [special kernel patch](ahci-mv-dkms-1.0/ahci-6121-irq-o
 which is not compiled until the system installation is complete. More details [here](#NAS-440-patch-details).
 However, all four hard drive slots are usable after installation.
 
+If you want to run a RAID across all four drives, you can create it as a degraded array on slots 3 and 4
+during installation and add the disks from slots 1 and 2 afterwards, once the driver is in place.
+
 In principle, it would be possible to patch the kernel before the initial installation and thus make
-hard drive slots 1 and 2 usable during installation, but this would go beyond the scope of this project.
+hard drive slots 1 and 2 directly usable during installation, but this would go beyond the scope of this project.
 
 ### Prerequisites
 
