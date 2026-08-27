@@ -65,6 +65,8 @@ LINES = {
     "rw":        (CHIP_HIGH, 12),       # MPP44
     "e":         (CHIP_HIGH, 13),       # MPP45
     "pageup":    (CHIP_HIGH, 15),       # MPP47, input, low when pressed
+    "led_data":  (CHIP_LOW, 12),        # MPP12, 74AHC164 data
+    "led_clock": (CHIP_LOW, 13),        # MPP13, 74AHC164 clock
 }
 
 DATA_LINES = ["d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7"]
@@ -77,8 +79,6 @@ FORBIDDEN = {
     (CHIP_LOW, 28):  "12V power for drive slots 3 and 4",
     (CHIP_LOW, 29):  "reset button, owned by gpio-keys",
     (CHIP_HIGH, 17): "power button, owned by gpio-keys",
-    (CHIP_LOW, 12):  "front panel LED shift register, data",
-    (CHIP_LOW, 13):  "front panel LED shift register, clock",
 }
 
 # Catch a typo in the tables above before a single line is ever requested.
@@ -100,6 +100,50 @@ ROW_OFFSET = 40
 # How often the keys are read, and how often at most the display is rewritten.
 POLL_INTERVAL = 0.15
 MIN_REFRESH = 1.0
+
+# ------------------------------------------------------------- front LEDs
+
+# The four drive LEDs and the system LED hang off a 74AHC164 8 bit
+# serial-in/parallel-out shift register on MPP12 (data) and MPP13 (clock).
+# This layout matches the U-Boot port and was checked on the machine:
+#
+#   bit 0  0x01  unknown, U-Boot keeps it set
+#   bit 1  0x02  drive 1 red   ) active LOW, clearing the bit lights the LED,
+#   bit 4  0x10  drive 4 red   ) and the drive order really is 1, 4, 3, 2
+#   bit 5  0x20  drive 3 red   )
+#   bit 6  0x40  drive 2 red   )
+#   bit 2  0x04  system blue   ) active HIGH
+#   bit 3  0x08  system red    )
+#   bit 7  0x80  unknown, U-Boot keeps it set
+#
+# The green half of each drive LED is wired to the controller's activity
+# output and cannot be reached from software at all.
+LED_ALL_OFF = 0xf3
+LED_DRIVE_BIT = {1: 0x02, 2: 0x40, 3: 0x20, 4: 0x10}
+LED_SYS_RED = 0x08
+LED_SYS_BLUE = 0x04
+
+# How often the RAID and sensors are consulted, and how fast a fault blinks.
+# Reading them costs a few dozen small sysfs files, so it does not belong in
+# the 0.15 s key loop; the blink phase is derived from the clock instead.
+LED_STATE_INTERVAL = 5.0
+LED_BLINK_HZ = 1.0
+
+# What turns the system LED red.  The fan reading is a failure, the
+# temperature a judgement call.
+TEMP_ALERT = 60
+
+# Front panel slot per (controller, port_no).  port_no counts from 1.  Keyed
+# on the controller and its port rather than on sdX because the kernel
+# renumbers block devices when a disk is missing or slow to spin up - which is
+# exactly the situation a fault LED has to survive.  The 88SE6121 has a third
+# port, the PATA one, which has no bay and is absent here on purpose.
+SLOTS = {
+    ("f1080000.sata", 1): 3,            # Kirkwood SoC SATA
+    ("f1080000.sata", 2): 4,
+    ("0000:01:00.0", 1): 1,             # 88SE6121 behind PCIe
+    ("0000:01:00.0", 2): 2,
+}
 
 # Shortest interval a network rate is measured over.  The main loop asks a
 # screen every POLL_INTERVAL, and a rate taken over 150 ms only jitters.
@@ -413,6 +457,178 @@ def _data_mounts():
     return sorted(set(mounts))
 
 
+class Leds:
+    """The four drive LEDs and the system LED behind their shift register.
+
+    The 74AHC164 has no output latch and cannot be read back, so every change
+    shifts the whole byte out again and exactly one process may own the two
+    lines.  Requesting them exclusively is what enforces that - a second
+    instance will fail to open rather than interleave its bits with ours.
+    """
+
+    def __init__(self, dry_run=False, verbose=False):
+        self.dry_run = dry_run
+        self.verbose = verbose
+        self.chip = None
+        self.lines = None
+        self.shown = None
+
+    def open(self):
+        if self.dry_run:
+            return
+        if gpiod is None:
+            raise RuntimeError("python3-libgpiod is missing")
+        self.chip = gpiod.Chip(CHIP_LOW)
+        offsets = [LINES["led_data"][1], LINES["led_clock"][1]]
+        for off in offsets:
+            if (CHIP_LOW, off) in FORBIDDEN:
+                raise RuntimeError("LED line %d is forbidden" % off)
+        self.lines = self.chip.get_lines(offsets)
+        self.lines.request(consumer="nas440-lcd-leds",
+                           type=gpiod.LINE_REQ_DIR_OUT, default_vals=[0, 0])
+
+    def close(self):
+        # The register keeps whatever was shifted into it last, so leave the
+        # front panel dark rather than frozen on the final state.
+        if self.lines is not None:
+            self.write(LED_ALL_OFF)
+            self.lines.release()
+        if self.chip is not None:
+            self.chip.close()
+
+    def write(self, value):
+        if value == self.shown:
+            return
+        self.shown = value
+        if self.verbose:
+            print("leds 0x%02x %s" % (value, format(value, "08b")))
+        if self.dry_run:
+            return
+        for i in range(8):              # least significant bit first
+            bit = (value >> i) & 1
+            self.lines.set_values([bit, 0])
+            self.lines.set_values([bit, 1])
+            self.lines.set_values([bit, 0])
+
+
+def _slot_devices():
+    """Front panel slot -> block device name, or None when the bay is empty.
+
+    Walks the ATA ports rather than the block devices, so an empty bay is a
+    result and not a gap.  Anything unexpected in sysfs - a missing port_no, a
+    controller we do not know - drops that port silently: a fault LED at the
+    wrong bay is worse than none, because it sends you to pull a healthy disk.
+    """
+    slots = {}
+    for port in glob.glob("/sys/class/ata_port/ata*"):
+        try:
+            port_no = int(_read(os.path.join(port, "port_no")))
+            ata = os.path.realpath(os.path.join(port, "device"))
+        except (OSError, ValueError):
+            continue
+        slot = SLOTS.get((os.path.basename(os.path.dirname(ata)), port_no))
+        if slot is None:
+            continue
+        attached = glob.glob(os.path.join(ata, "host*/target*/*/block/*"))
+        slots[slot] = os.path.basename(attached[0]) if attached else None
+    return slots
+
+
+def _md_status():
+    """(faulty disks, disks being rebuilt, any array degraded).
+
+    Read from /sys/block/md*/md rather than /proc/mdstat because the member
+    directories are named after the device - dev-sdc7 - which is what the slot
+    lookup needs.  mdstat only shows that a member is missing, not which one.
+    """
+    faulty, rebuilding = set(), set()
+    degraded = False
+    for md in glob.glob("/sys/block/md*/md"):
+        try:
+            degraded |= bool(int(_read(os.path.join(md, "degraded"))))
+        except (OSError, ValueError):
+            continue                    # not the layout we expect, skip it
+        try:
+            action = _read(os.path.join(md, "sync_action"))
+        except OSError:
+            action = "idle"
+        for member in glob.glob(os.path.join(md, "dev-*")):
+            try:
+                state = _read(os.path.join(member, "state")).split(",")
+            except OSError:
+                continue
+            # dev-sdc7 -> sdc, the disk the partition lives on
+            disk = re.sub(r"\d+$", "", os.path.basename(member)[4:])
+            if "faulty" in state:
+                faulty.add(disk)
+            elif action == "recover" and "spare" in state:
+                rebuilding.add(disk)
+    return faulty, rebuilding, degraded
+
+
+def _system_alert(degraded):
+    if degraded:
+        return True
+    hwmon = _hwmon()
+    if hwmon is None:
+        return False
+    try:
+        if _read_int(os.path.join(hwmon, "fan1_input")) == 0:
+            return True
+    except (OSError, ValueError):
+        pass
+    for channel in ("temp2_input", "temp3_input"):
+        try:
+            if _read_int(os.path.join(hwmon, channel)) >= TEMP_ALERT * 1000:
+                return True
+        except (OSError, ValueError):
+            pass
+    return False
+
+
+def led_targets():
+    """(slot -> "on" / "blink" / "off", system alert).
+
+    A disk marked faulty gets a steady red, one being rebuilt a blinking one.
+    An empty bay lights up only while some array is degraded: the kernel does
+    not record which bay a removed member sat in, but on this box every array
+    spans all four disks, so the empty bay is the one to refill.  That is a
+    fair inference, not a fact, and the only guess in here.
+    """
+    slots = _slot_devices()
+    if not slots:
+        return {}, False                # unknown topology: light nothing
+    faulty, rebuilding, degraded = _md_status()
+    targets = {}
+    for slot, disk in slots.items():
+        if disk is None:
+            targets[slot] = "on" if degraded else "off"
+        elif disk in faulty:
+            targets[slot] = "on"
+        elif disk in rebuilding:
+            targets[slot] = "blink"
+        else:
+            targets[slot] = "off"
+    return targets, _system_alert(degraded)
+
+
+def led_byte(targets, alert, phase):
+    # No slots means the topology did not look the way this program expects.
+    # Say nothing at all then, rather than claim everything is fine with a
+    # steady blue.
+    if not targets:
+        return LED_ALL_OFF
+    value = LED_ALL_OFF
+    for slot, state in targets.items():
+        if state == "on" or (state == "blink" and phase):
+            value &= ~LED_DRIVE_BIT[slot]
+    if not alert:
+        value |= LED_SYS_BLUE
+    elif phase:
+        value |= LED_SYS_RED
+    return value
+
+
 # mdstat spells the running operation out; the display has room for four
 # characters next to the state flags and the percentage.
 MD_ACTIONS = {
@@ -719,7 +935,7 @@ def do_charset(lcd, start):
           % (start, start + COLS - 1))
 
 
-def run(lcd, args):
+def run(lcd, leds, args):
     names = [n.strip() for n in args.screens.split(",") if n.strip()]
     if not names:
         sys.exit("no screens selected")
@@ -747,6 +963,8 @@ def run(lcd, args):
     last_refresh = 0.0
     was_pressed = False
     shown = None
+    last_led_state = 0.0
+    led_state = ({}, False)
 
     while not stop_requested:
         now = time.monotonic()
@@ -773,6 +991,19 @@ def run(lcd, args):
                 and now - last_press >= args.backlight_timeout:
             lcd.backlight(False)
             backlight_on = False
+
+        if leds is not None:
+            # Consulting the RAID costs dozens of small sysfs reads, so it
+            # happens rarely; the blink comes from the clock, not from here.
+            if now - last_led_state >= LED_STATE_INTERVAL:
+                last_led_state = now
+                try:
+                    led_state = led_targets()
+                except Exception as err:      # same rule as for the screens
+                    print("led state failed: %s" % err, file=sys.stderr)
+                    led_state = ({}, False)
+            phase = int(now * 2 * LED_BLINK_HZ) % 2 == 0
+            leds.write(led_byte(led_state[0], led_state[1], phase))
 
         # Find the next screen that has something to say.
         content = None
@@ -834,6 +1065,8 @@ def main():
                         metavar="S", help="switch the backlight off S seconds "
                                           "after the last key press, "
                                           "0 to keep it on")
+    parser.add_argument("--no-leds", action="store_true",
+                        help="leave the front panel LEDs alone")
     parser.add_argument("--stop-message", default="System stopped",
                         help="text to leave on the display when the service "
                              "is stopped")
@@ -864,7 +1097,22 @@ def main():
             for row, text in enumerate(rows[:2]):
                 lcd.text(row, text)
         else:
-            run(lcd, args)
+            leds = None
+            if not args.no_leds:
+                leds = Leds(dry_run=args.dry_run, verbose=args.verbose)
+                try:
+                    leds.open()
+                except (OSError, RuntimeError) as err:
+                    # Another owner of the shift register, or no libgpiod.
+                    # The display is the more important half, so carry on.
+                    print("blackarmor-nas440-lcd: LEDs unavailable (%s)" % err,
+                          file=sys.stderr)
+                    leds = None
+            try:
+                run(lcd, leds, args)
+            finally:
+                if leds is not None:
+                    leds.close()
     finally:
         lcd.close()
 
