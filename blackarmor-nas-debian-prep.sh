@@ -106,7 +106,10 @@ fi
 rm $VERBOSE -f uImage-dtb uInitrd
 
 if $REBUILD; then
-	test -x /usr/bin/arm-none-eabi-gcc || apt-get install gcc-arm-none-eabi
+	if ! command -v arm-none-eabi-gcc &>/dev/null; then
+		echo "'arm-none-eabi-gcc' missing, install 'gcc-arm-none-eabi' package first"
+		exit 1
+	fi
 	export CROSS_COMPILE=arm-none-eabi-
 	export ARCH=arm
 

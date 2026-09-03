@@ -1,10 +1,17 @@
 # seagate-blackarmor-nas
 
 ## Preamble
-Some years ago [I reverse engineered](archive/seagate-blackarmor-nas.txt) the Seagate Blackarmor NAS 220 and found a convenient way on [how to enable SSH on the device](archive/sg2000-2000.1337.sp42.img). Later, the same mechanism was used to install an [alternative Linux firmware (Debian 5 Lenny)](archive/custom-sg2000-2000.1337.sp99.img). Obviously, Debian 5 Lenny has reached end of life and should not be used in production anymore.
+This project provides everything needed to run a fully updateable Debian GNU/Linux system
+on a Seagate Blackarmor NAS. All components are supported by open source code: bootloader,
+kernel, SATA hard disks, automatic fan control, status LEDs and LC display
+(depending on the model).
 
-With the following instructions you'll manage to install a fully updateable Debian GNU/Linux system
-to the NAS (kernel and initrd stored in NAND flash, updated via [flash-kernel package](https://packages.debian.org/stable/flash-kernel)).
+It started years ago with [reverse engineering](archive/seagate-blackarmor-nas.txt) the
+Blackarmor NAS 220: first a way to [enable SSH](archive/sg2000-2000.1337.sp42.img) on the
+stock firmware, then an [alternative firmware based on Debian 5 Lenny](archive/custom-sg2000-2000.1337.sp99.img)
+sideloaded through the same mechanism — both long superseded and not for production use.
+What grew out of it is a proper Debian installation with its own U-Boot and device tree,
+and finally a kernel patch that fixes the SATA controller of the NAS440.
 
 Please do me a favor: :thumbsup: If you use any information or code you find here, please link back to this page.
 :star: Also, please consider to star this project. I really like to keep track of who is using this to do creative things, especially if you are from other parts of the world.
@@ -218,7 +225,11 @@ Marvell>> reset
 
 Make sure to restart the NAS via `reset` command after flashing the bootloader!
 
-If your nas just restarts with the error message `cpu reset` after the `fatload usb 0:1 0x800000 u-boot-nas220.kwb` command try to format the usb stick to `ext2` and use `ext2load ...` instead.
+If the NAS resets with a `cpu reset` message instead of loading the file, the stock Seagate
+bootloader chokes on reading from the USB stick. There are two ways around it: format the
+stick as `ext2` and use `ext2load usb 0:1 ...` in place of `fatload`, or leave the stock
+bootloader out of the picture entirely and run the new U-Boot over the serial line with
+`kwboot`, as described under [Revive a bricked device](#Revive-a-bricked-device).
 
 ### Starting Debian installation
 
@@ -343,6 +354,12 @@ Writing data to block 125 at offset 0x1f4000
 Writing data to block 126 at offset 0x1f8000
 done.
 ```
+
+The `Writing data to block ...` output above is the
+[flash-kernel package](https://packages.debian.org/stable/flash-kernel) writing kernel and
+initrd into the NAND flash partitions. The script registers this machine with it, so every
+future kernel update from Debian is flashed automatically — that is what keeps the
+installation updateable without ever touching the bootloader again.
 
 Set ethernet MAC address and enable autoboot (only needed after flashing Das U-Boot bootloader):
 
