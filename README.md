@@ -278,6 +278,8 @@ Uncompressing Linux... done, booting the kernel.
 ...
 ```
 
+If all the mirrors for Debian Buster only have Trixie or newer, manually add the mirror "archive.debian.org" and type "/debian" at the next prompt. Buster appears to have been moved to archive. 
+
 Proceed with Debian installation as usual (configure RAID, select packages, ...). Ignore the `No installable kernel was found` and `No boot loader installed` warnings (`Continue without installing a kernel?`=`Yes` and `Continue`), but do not reboot yet!
 
 ### Finishing Debian installation
@@ -400,6 +402,15 @@ nas440>
 
 To permanently flash the bootloader to NAND, follow the steps described
 in [Flashing Das U-Boot bootloader](#Flashing-Das-U-Boot-bootloader).
+
+If you are using MacOS, you may notice that u-boot-tools do not have kwboot packaged when you install through Homebrew. You can try to use
+the included kwboot.py file. If saved into the home directory the following command should work when using screen or tio. 
+
+...
+```
+python3 -u ~/kwboot.py /dev/cu.usbserial-0001 ~/u-boot-nas220.kwb
+```
+
 
 ## NAS 440 patch details
 
