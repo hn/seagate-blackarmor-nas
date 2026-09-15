@@ -121,9 +121,25 @@ else
 fi
 
 if [ $NASMODEL = "nas440" ]; then
-	# Fix SATA controller bug https://bugzilla.kernel.org/show_bug.cgi?id=216094
-	wget $WGETOPTS -nc -P /root $RAWREPO/ahci-mv-dkms_1.0_all.deb
-	apt-get --yes install /root/ahci-mv-dkms_*_all.deb
+	# Fix SATA controller bug https://bugzilla.kernel.org/show_bug.cgi?id=216094.
+	# Skip the DKMS package once the kernel carries the fix itself, it would
+	# only pull in dkms, build-essential, headers and sources for nothing.
+	# 'uname -r' is the installer's kernel here, so ask the file system, and
+	# look at the kernel's own module - ours in updates/dkms would always match.
+	# Still needed as long as any installed kernel lacks the fix, and also
+	# when there is no module at all (ahci built in, glob does not match).
+	AHCIFIX=true
+	for AHCIMOD in /lib/modules/*/kernel/drivers/ata/ahci.ko; do
+		if [ ! -e "$AHCIMOD" ] || ! grep -q ahci_mv_irq_handler "$AHCIMOD"; then
+			AHCIFIX=false
+		fi
+	done
+	if $AHCIFIX; then
+		echo "Kernel already contains the 88SE6121 fix, skipping DKMS package"
+	else
+		wget $WGETOPTS -nc -P /root $RAWREPO/ahci-mv-dkms_1.0_all.deb
+		apt-get --yes install /root/ahci-mv-dkms_*_all.deb
+	fi
 
 	# Show system information on the front panel LC display
 	apt-get --yes install python3-libgpiod
